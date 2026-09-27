@@ -1,0 +1,41 @@
+project:
+  name: "example_hospital"
+  run_id: null
+
+inputs:
+  # metadata: "validation/example_data/example_metadata.csv"
+  # snp_matrix: "validation/example_data/coreSNPmatrix.co.csv"
+  # mlst_profile: "validation/example_data/05.mlst.xlsx"
+  metadata: "data/example_multi_facility/example_metadata_3facilities.csv"
+  snp_matrix: "data/example_multi_facility/coreSNPmatrix.co_3facilities.csv"
+  mlst_profile: "data/example_multi_facility/05.mlst_3facilities.xlsx"
+
+columns:
+  sample_id: SampleID
+  sequence_type: ST
+  st_sample_id: FILE
+#  collection_date: TakenDate
+
+variables:
+  main_var: FacilityName
+  var_01: WardType
+  var_02: TakenDate
+
+analysis:
+  cluster_type: "Transmission"        # Core or Transmission
+  transmission_level: "Facility"      # Facility, Area, Community
+  core_cluster_context: [ST] # Global , ST, MainVar, SecondaryVar etc.
+  snp_cutoff: 20
+  days_cutoff: 45
+  n_bootstraps: 500
+  random_seed: 42
+  date_format: "ymd"
+  max_k: null
+  engine: r_compatible
+
+
+outputs:
+  out_dir: "runs"
+  generate_excel: true
+  generate_figures: true
+  generate_html_report: true

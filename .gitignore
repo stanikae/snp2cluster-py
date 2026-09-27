@@ -1,0 +1,32 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+runs/
+.DS_Store
+validation/parity_reports/
+validation/python_outputs/
+validation/r_outputs/
+
+# Test and analysis caches
+.coverage
+.coverage.*
+htmlcov/
+# Python caches
+*.py[cod]
+# Virtual environments
+.venv/
+env/
+# Packaging outputs
+# SNP2Cluster-Py generated outputs
+# Operating-system files
