@@ -1,5 +1,9 @@
 # SNP2Cluster-Py
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23045446.svg)](https://doi.org/10.5281/zenodo.23045446)
+
+**A pathogen-agnostic, context-aware SNP clustering framework for transmission-cluster detection**
+
 **A pathogen-agnostic, context-aware SNP clustering framework for transmission-cluster detection**
 
 SNP2Cluster-Py is an open-source Python application for reproducible genomic clustering and transmission-cluster analysis from pairwise core SNP distances, epidemiological metadata, sequence types, collection dates, and configurable analytical contexts.
