@@ -8,6 +8,34 @@ SNP2Cluster-Py is an open-source Python application for reproducible genomic clu
 
 The tool provides a tested Python implementation of the SNP2Cluster analytical workflow, including R-compatible Core SNP clustering, SNP-Epi transmission clustering, context-aware analysis, publication-supporting visualizations, machine-readable tables, audit records, and an open scientific HTML report.
 
+
+
+## Table of Contents
+- [Version 1 scope](#version-1-scope)
+- [Scientific purpose](#scientific-purpose)
+- [Analysis workflow](#analysis-workflow)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Example configuration](#example-configuration)
+- [Core clustering contexts](#core-clustering-contexts)
+- [Canonical Core cluster identifiers](#canonical-core-cluster-identifiers)
+- [Analysis modes](#analysis-modes)
+- [Input formats](#input-formats)
+- [Date parsing](#date-parsing)
+- [Output structure](#output-structure)
+- [Visual outputs](#visual-outputs)
+- [Open scientific HTML report](#open-scientific-html-report)
+- [Validation and testing](#validation-and-testing)
+- [Reproducibility](#reproducibility)
+- [Citation](#citation)
+- [Public open-source and commercial development](#public-open-source-and-commercial-development)
+- [Contributing](#contributing)
+- [Security and responsible use](#security-and-responsible-use)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
+
+
 ## Version 1 scope
 
 Version 1 provides the complete open scientific analysis layer:
@@ -317,45 +345,44 @@ Outputs vary by analysis mode and configuration.
 ## Visual outputs
 
 ### K-selection diagnostics
-
-Summarize candidate values of `k` and the selected Core clustering solution.
+Summarize candidate values of k and the selected Core clustering solution.
+![K-selection diagnostics](docs/images/01_k_selection_ALL_SAMPLES.png)
 
 ### Transmission scatterplots
-
 Display clustered and unclustered isolates across epidemiological time and configured analysis groups.
+![Transmission scatterplots](docs/images/02_transmission_scatter_EXAMPLE_HOSPITAL_B.png)
 
 ### Annotated Core SNP heatmaps
-
 Display pairwise SNP distances together with Core cluster and metadata annotations.
+![Core SNP heatmaps](docs/images/03_core_heatmap.png)
 
 ### Core SNP minimum spanning trees
-
 Display sparse genetic relationships among all eligible samples in the selected visualization group.
+* Clustered samples are coloured by core_snp_cluster.
+* Samples without retained Core cluster assignments are shown in grey.
+* Global context produces an all-sample MST and retains main_var drill-down MSTs.
+* Non-Global contexts produce main_var-specific MSTs.
 
-- Clustered samples are coloured by `core_snp_cluster`.
-- Samples without retained Core cluster assignments are shown in grey.
-- Global context produces an all-sample MST and retains `main_var` drill-down MSTs.
-- Non-Global contexts produce `main_var`-specific MSTs.
+![Core SNP minimum spanning trees](docs/images/mst.png)
 
 ### Transmission-cluster networks
-
 Display isolates already assigned to inferred transmission clusters.
-
 Network edges are post-clustering SNP minimum-spanning-tree connections for visualizing genetic relationships. They do not represent confirmed direct transmission and do not necessarily satisfy the configured temporal cutoff. Use the corresponding transmission scatterplots for temporal interpretation.
+![Transmission-cluster networks](docs/images/transmission_network.png)
 
 ## Open scientific HTML report
 
 The HTML report provides a navigable index of each run, including:
-
-- Analysis summary metrics
-- Configuration and analytical thresholds
-- Embedded static figures
-- Links to interactive MSTs and transmission networks
-- Links to machine-readable output tables
-- Methods and interpretation guidance
-- Reproducibility and provenance information when available
+* Analysis summary metrics
+* Configuration and analytical thresholds
+* Embedded static figures
+* Links to interactive MSTs and transmission networks
+* Links to machine-readable output tables
+* Methods and interpretation guidance
+* Reproducibility and provenance information when available
 
 The report does not generate automated outbreak interpretations, risk scores, clinical recommendations, or operational alerts.
+![HTML Report Overview](docs/images/full_html_report.png)
 
 ## Validation and testing
 
