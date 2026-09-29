@@ -9,6 +9,6 @@ authors:
   - family-names: "Christoffels"
     given-names: "Alan"
 version: 1.0.0
-doi: "10.5281/zenodo.23045446"
+doi: "10.5281/zenodo.23045861"
 date-released: 2026-09-29
 url: "https://github.com/stanikae/snp2cluster-py"

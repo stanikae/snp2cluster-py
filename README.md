@@ -1,6 +1,6 @@
 # SNP2Cluster-Py
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23045446.svg)](https://doi.org/10.5281/zenodo.23045446)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23045861.svg)](https://doi.org/10.5281/zenodo.23045861)
 
 **A pathogen-agnostic, context-aware SNP clustering framework for transmission-cluster detection**
 
