@@ -71,7 +71,7 @@ Heatmaps and MSTs     Scatterplots and networks
 Clone the repository and install the package in an isolated Python environment. When creating the virtual environment, ensure you invoke a compatible Python version (e.g., `python3` or `python3.10`).
 
 ```bash
-git clone [https://github.com/stanikae/snp2cluster-py.git](https://github.com/stanikae/snp2cluster-py.git)
+git clone https://github.com/stanikae/snp2cluster-py.git
 cd snp2cluster-py
 
 # Create the environment using Python 3.10+
