@@ -3,12 +3,9 @@ project:
   run_id: null
 
 inputs:
-  # metadata: "validation/example_data/example_metadata.csv"
-  # snp_matrix: "validation/example_data/coreSNPmatrix.co.csv"
-  # mlst_profile: "validation/example_data/05.mlst.xlsx"
-  metadata: "data/example2/example_metadata_3facilities.csv"
-  snp_matrix: "data/example2/coreSNPmatrix.co_3facilities.csv"
-  mlst_profile: "data/example2/05.mlst_3facilities.xlsx"
+  metadata: "data/example_multi_facility/example_metadata_3facilities.csv"
+  snp_matrix: "data/example_multi_facility/coreSNPmatrix.co_3facilities.csv"
+  mlst_profile: "data/example_multi_facility/05.mlst_3facilities.xlsx"
 
 columns:
   sample_id: SampleID

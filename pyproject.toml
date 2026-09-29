@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snp2cluster-py"
-version = "0.1.0"
-description = "Python implementation scaffold for SNP2Cluster genomic transmission cluster detection."
+version = "1.0.0"
+description = "A context-aware Python framework for Core SNP clustering and epidemiologically informed transmission-cluster detection."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "BioinfoX / Stanford Kwenda" }
+    { name = "Stanford Kwenda" }
 ]
-license = { text = "Proprietary or dual-license TBD" }
+license = { text = "Apache-2.0" }
 dependencies = [
   "pyvis>=0.3.2",
     "pandas>=2.0",

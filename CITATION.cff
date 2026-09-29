@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+title: "SNP2Cluster-Py: A pathogen-agnostic and context-aware SNP clustering framework for genomic and epidemiological transmission-cluster detection"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Kwenda"
+    given-names: "Stanford"
+    email: "skwenda@bioinfox.co.za"
+  - family-names: "Christoffels"
+    given-names: "Alan"
+version: 1.0.0
+doi: "10.5281/zenodo.YOUR_CONCEPT_DOI"
+date-released: 2026-09-29
+url: "https://github.com/stanikae/snp2cluster-py"

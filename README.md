@@ -66,13 +66,16 @@ Heatmaps and MSTs     Scatterplots and networks
 
 ## Installation
 
-Clone the repository and install the package in an isolated Python environment.
+**Prerequisite:** SNP2Cluster-Py requires Python 3.10 or higher.
+
+Clone the repository and install the package in an isolated Python environment. When creating the virtual environment, ensure you invoke a compatible Python version (e.g., `python3` or `python3.10`).
 
 ```bash
-git clone <PUBLIC_REPOSITORY_URL>
+git clone [https://github.com/stanikae/snp2cluster-py.git](https://github.com/stanikae/snp2cluster-py.git)
 cd snp2cluster-py
 
-python -m venv .venv
+# Create the environment using Python 3.10+
+python3.10 -m venv .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip
@@ -394,17 +397,11 @@ The recommended title for the Version 1 software record and manuscript is:
 
 > **SNP2Cluster-Py: A pathogen-agnostic and context-aware SNP clustering framework for transmission-cluster detection**
 
-A `CITATION.cff` file and version-specific Zenodo DOI should be added before the first public release.
+To cite this software, please use the "Cite this repository" button in the GitHub sidebar to generate the correct format for your reference manager, or refer to the `CITATION.cff` file in this repository.
 
 The original SNP2Cluster software record is:
 
 > Kwenda S, Shuping L, Mashau R, Ismail H, Govender NP. SNP2Cluster: A core SNP and K-means clustering-based tool for enhanced transmission-cluster detection in outbreak scenarios. Zenodo, 2024. DOI: 10.5281/zenodo.14060296.
-
-## Public open-source and commercial development
-
-This repository contains the open scientific analysis layer of SNP2Cluster-Py. The public release is intended to provide all functionality required to reproduce the scientific clustering, visualization, and reporting outputs described in the associated manuscript.
-
-Commercial development, enhanced interpretation, operational surveillance workflows, executive reporting, and decision-support extensions are maintained separately and are not part of this public repository.
 
 ## Contributing
 
@@ -416,7 +413,7 @@ Contributions are welcome through GitHub issues and pull requests. Before contri
 4. Run `git diff --check`.
 5. Document user-facing changes.
 
-A dedicated `CONTRIBUTING.md` file should be added before public announcement.
+Please refer to `CONTRIBUTING.md` for more detailed guidelines.
 
 ## Security and responsible use
 
@@ -428,7 +425,7 @@ SNP2Cluster-Py outputs support genomic epidemiology and outbreak investigation. 
 
 ## License
 
-An OSI-approved open-source license must be selected before public release. Apache License 2.0 is recommended for the open repository because it provides permissive reuse terms and an explicit patent grant while allowing separate proprietary extensions.
+This project is licensed under the Apache License 2.0. See the `LICENSE` file for details. This provides permissive reuse terms and an explicit patent grant for the open scientific analysis layer.
 
 ## Acknowledgements
 
