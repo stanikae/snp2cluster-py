@@ -57,6 +57,8 @@ Version 1 provides the complete open scientific analysis layer:
 - Open scientific HTML run reports
 - Reproducible command-line execution through YAML configuration
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Scientific purpose
 
 SNP2Cluster-Py supports two related analytical questions:
@@ -65,6 +67,8 @@ SNP2Cluster-Py supports two related analytical questions:
 2. **Transmission clustering:** Which Core-clustered isolates also satisfy configured epidemiological grouping and temporal criteria for inferred transmission-cluster membership?
 
 The software does not infer confirmed direct transmission. Network edges are visualization aids and must be interpreted alongside the configured parameters, epidemiological metadata, collection dates, and transmission scatterplots.
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Analysis workflow
 
@@ -93,6 +97,7 @@ Heatmaps and MSTs     Scatterplots and networks
                     v
         Tables, audit records, and HTML report
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Installation
 
@@ -118,6 +123,7 @@ For development and testing:
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Quick start
 
@@ -134,6 +140,7 @@ Run an analysis:
 python -m src.snp2cluster.cli run \
     --config configs/example_config.yaml
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Example configuration
 
@@ -175,6 +182,7 @@ outputs:
   generate_figures: true
   generate_html_report: true
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Core clustering contexts
 
@@ -227,6 +235,7 @@ may create:
 152__Hospital_B
 307__Hospital_A
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Canonical Core cluster identifiers
 
@@ -246,6 +255,8 @@ ALL_SAMPLES                3                 ALL_SAMPLES__3
 ```
 
 Samples without a retained Core cluster remain in the complete Core annotation output with missing `snp_cluster_id` and `core_snp_cluster` values.
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Analysis modes
 
@@ -280,6 +291,8 @@ Supported transmission levels are:
 - `Area`
 - `Community`
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Input formats
 
 Supported tabular formats include:
@@ -292,6 +305,8 @@ Supported tabular formats include:
 - Parquet
 
 Column names are configured in YAML and are not hardcoded.
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Date parsing
 
@@ -310,6 +325,7 @@ ydm
 dmy
 mdy
 ```
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Output structure
 
@@ -342,6 +358,8 @@ runs/<project>_<run_id>/
 
 Outputs vary by analysis mode and configuration.
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Visual outputs
 
 ### K-selection diagnostics
@@ -370,6 +388,8 @@ Display isolates already assigned to inferred transmission clusters.
 Network edges are post-clustering SNP minimum-spanning-tree connections for visualizing genetic relationships. They do not represent confirmed direct transmission and do not necessarily satisfy the configured temporal cutoff. Use the corresponding transmission scatterplots for temporal interpretation.
 ![Transmission-cluster networks](docs/images/transmission_network.png)
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Open scientific HTML report
 
 The HTML report provides a navigable index of each run, including:
@@ -383,6 +403,8 @@ The HTML report provides a navigable index of each run, including:
 
 The report does not generate automated outbreak interpretations, risk scores, clinical recommendations, or operational alerts.
 ![HTML Report Overview](docs/images/full_html_report.png)
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Validation and testing
 
@@ -406,6 +428,8 @@ git diff --check
 
 The repository includes example configurations for Global, ST-aware, Facility, Area, Community, Core-only, and Transmission workflows.
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Reproducibility
 
 SNP2Cluster-Py supports reproducible analyses through:
@@ -420,6 +444,8 @@ SNP2Cluster-Py supports reproducible analyses through:
 - Machine-readable result tables
 - Versioned software releases
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Citation
 
 The recommended title for the Version 1 software record and manuscript is:
@@ -431,6 +457,8 @@ To cite this software, please use the "Cite this repository" button in the GitHu
 The original SNP2Cluster software record is:
 
 > Kwenda S, Shuping L, Mashau R, Ismail H, Govender NP. SNP2Cluster: A core SNP and K-means clustering-based tool for enhanced transmission-cluster detection in outbreak scenarios. Zenodo, 2024. DOI: 10.5281/zenodo.14060296.
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Contributing
 
@@ -444,6 +472,8 @@ Contributions are welcome through GitHub issues and pull requests. Before contri
 
 Please refer to `CONTRIBUTING.md` for more detailed guidelines.
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## Security and responsible use
 
 Do not commit identifiable patient information, confidential surveillance records, credentials, access tokens, or restricted institutional data.
@@ -452,9 +482,13 @@ Users are responsible for ensuring that input data use complies with applicable 
 
 SNP2Cluster-Py outputs support genomic epidemiology and outbreak investigation. Outputs should not be treated as standalone evidence of direct transmission, source attribution, or clinical causality.
 
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
+
 ## License
 
 This project is licensed under the Apache License 2.0. See the `LICENSE` file for details. This provides permissive reuse terms and an explicit patent grant for the open scientific analysis layer.
+
+<p align="right"><a href="#table-of-contents">⬆ Back to top</a></p>
 
 ## Acknowledgements
 
