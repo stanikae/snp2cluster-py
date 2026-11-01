@@ -67,6 +67,97 @@ class CoreSNPResult:
 
 
 
+# def determine_optimal_k_r_style(
+#     mat: pd.DataFrame,
+#     random_seed: int = 42,
+# ) -> tuple[int, int, pd.DataFrame]:
+#     """
+#     Port of R fviz_nbclust silhouette search.
+
+#     Returns:
+#         sigN
+#             Optimal number of clusters.
+
+#         sigNN
+#             Upper clustering threshold used downstream.
+
+#         diagnostics
+#             DataFrame with k and silhouette values.
+#     """
+
+#     n = len(mat)
+
+#     kmx = round(n / 2)
+
+#     if kmx < 2:
+
+#         diagnostics = pd.DataFrame(
+#             {
+#                 "k": [1],
+#                 "silhouette": [float("nan")],
+#             }
+#         )
+
+#         return 2, 4, diagnostics
+
+#     best_k = 2
+#     best_score = -1
+
+#     rows = []
+
+#     for k in range(2, kmx + 1):
+
+#         model = KMeans(
+#             n_clusters=k,
+#             n_init=25,
+#             random_state=random_seed,
+#         )
+
+#         labels = model.fit_predict(mat)
+
+#         if len(set(labels)) < 2:
+
+#             score = float("nan")
+
+#         else:
+
+#             try:
+
+#                 score = silhouette_score(
+#                     mat,
+#                     labels,
+#                 )
+
+#             except Exception:
+
+#                 score = float("nan")
+
+#         rows.append(
+#             {
+#                 "k": k,
+#                 "silhouette": score,
+#             }
+#         )
+
+#         if (
+#             not pd.isna(score)
+#             and score > best_score
+#         ):
+
+#             best_score = score
+#             best_k = k
+
+#     diagnostics = (
+#         pd.DataFrame(rows)
+#         .sort_values("k")
+#         .reset_index(drop=True)
+#     )
+
+#     sigN = best_k
+#     sigNN = sigN + 2
+
+#     return sigN, sigNN, diagnostics
+
 def determine_optimal_k_r_style(
     mat: pd.DataFrame,
     random_seed: int = 42,
@@ -74,76 +165,110 @@ def determine_optimal_k_r_style(
     """
     Port of R fviz_nbclust silhouette search.
 
-    Returns:
-        sigN
-            Optimal number of clusters.
+    Contexts containing at least two isolates are eligible for Core
+    clustering. Where the supplied SNP-distance profiles support only
+    one distinct group, the data-driven initial solution is K=1.
 
-        sigNN
-            Upper clustering threshold used downstream.
+    A numerical silhouette coefficient is not defined for K=1, so the
+    diagnostic silhouette value is recorded as NaN. The K=1 group must
+    still proceed to downstream SNP-cutoff refinement.
 
-        diagnostics
-            DataFrame with k and silhouette values.
+    Returns
+    -------
+    sigN
+        Selected initial number of clusters.
+
+    sigNN
+        Upper clustering threshold used downstream.
+
+    diagnostics
+        DataFrame containing candidate K values, silhouette values and
+        the K-selection method.
     """
+    mat = mat.copy()
+    mat.index = mat.index.astype(str)
+    mat.columns = mat.columns.astype(str)
+    mat = mat.loc[mat.index, mat.index].astype(float)
 
     n = len(mat)
 
-    kmx = round(n / 2)
-
-    if kmx < 2:
-
+    if n < 2:
         diagnostics = pd.DataFrame(
             {
                 "k": [1],
                 "silhouette": [float("nan")],
+                "selection_method": ["insufficient_isolates"],
             }
         )
+        return 1, 3, diagnostics
 
-        return 2, 4, diagnostics
+    x = mat.to_numpy(dtype=float)
+    n_distinct_profiles = np.unique(x, axis=0).shape[0]
 
-    best_k = 2
-    best_score = -1
+    if n_distinct_profiles == 1:
+        diagnostics = pd.DataFrame(
+            {
+                "k": [1],
+                "silhouette": [float("nan")],
+                "selection_method": ["single_distinct_profile"],
+            }
+        )
+        return 1, 3, diagnostics
 
-    rows = []
+    kmx = round(n / 2)
+
+    if kmx < 2:
+        diagnostics = pd.DataFrame(
+            {
+                "k": [1],
+                "silhouette": [float("nan")],
+                "selection_method": ["single_candidate_cluster"],
+            }
+        )
+        return 1, 3, diagnostics
+
+    # A candidate K cannot exceed the number of distinct observations.
+    kmx = min(kmx, n_distinct_profiles)
+
+    best_k: int | None = None
+    best_score = -np.inf
+    rows: list[dict[str, Any]] = []
 
     for k in range(2, kmx + 1):
-
         model = KMeans(
             n_clusters=k,
             n_init=25,
             random_state=random_seed,
         )
 
-        labels = model.fit_predict(mat)
+        labels = model.fit_predict(x)
+        n_observed_clusters = len(np.unique(labels))
 
-        if len(set(labels)) < 2:
-
+        if (
+            n_observed_clusters < 2
+            or n_observed_clusters >= n
+        ):
             score = float("nan")
-
         else:
-
             try:
-
-                score = silhouette_score(
-                    mat,
-                    labels,
+                score = float(
+                    silhouette_score(
+                        x,
+                        labels,
+                    )
                 )
-
-            except Exception:
-
+            except ValueError:
                 score = float("nan")
 
         rows.append(
             {
                 "k": k,
                 "silhouette": score,
+                "selection_method": "silhouette",
             }
         )
 
-        if (
-            not pd.isna(score)
-            and score > best_score
-        ):
-
+        if not pd.isna(score) and score > best_score:
             best_score = score
             best_k = k
 
@@ -153,12 +278,32 @@ def determine_optimal_k_r_style(
         .reset_index(drop=True)
     )
 
+    # Defensive boundary condition: if no candidate K >= 2 produces a
+    # valid silhouette score, retain one initial cluster and allow the
+    # SNP-cutoff refinement stage to determine valid final clusters.
+    if best_k is None:
+        diagnostics = pd.concat(
+            [
+                pd.DataFrame(
+                    {
+                        "k": [1],
+                        "silhouette": [float("nan")],
+                        "selection_method": [
+                            "no_valid_multicluster_solution"
+                        ],
+                    }
+                ),
+                diagnostics,
+            ],
+            ignore_index=True,
+        )
+
+        return 1, 3, diagnostics
+
     sigN = best_k
     sigNN = sigN + 2
 
     return sigN, sigNN, diagnostics
-
-
 
 
 def rleid(values) -> list[int]:
