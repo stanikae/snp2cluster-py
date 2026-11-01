@@ -585,6 +585,11 @@ def get_core_snp_clusters_r_compatible(
     - apply `connect_samples`
     - remove overlapping sample assignments
     - return isolate-level SNP clusters joined to K-means cluster IDs
+    - where data-driven K selection returns K=1, retain the single
+      initial group without applying a silhouette threshold
+    - pass that K=1 group through the same SNP-cutoff refinement
+    - retain only final Core SNP clusters containing at least two isolates
+
 
     The non-orig/date-ordered branch is intentionally not implemented here yet;
     share the remaining SNP-Epi functions and we can port that as the next layer.
@@ -599,30 +604,121 @@ def get_core_snp_clusters_r_compatible(
 
     m = m.loc[m.index, m.index].astype(float)
 
-    # scaled_values = StandardScaler().fit_transform(m)
+    # if m.shape[0] <= max_k:
+    #     max_k = m.shape[0] - 1
+    # if k >= m.shape[0]:
+    #     k = max(1, m.shape[0] - 1)
+    # if k < 2:
+    #     return None
 
-    # m = pd.DataFrame(
-    #     scaled_values,
-    #     index=m.index,
-    #     columns=m.columns,
-    # )
+    # labels, widths_df, avg_df = _fit_kmeans_and_silhouette(m, k=k, random_seed=random_seed)
+    # kmeans_assignments = widths_df[["ID", "cluster"]].rename(columns={"ID": "name", "cluster": "km_cluster"})
 
-    if m.shape[0] <= max_k:
-        max_k = m.shape[0] - 1
-    if k >= m.shape[0]:
-        k = max(1, m.shape[0] - 1)
-    if k < 2:
+    # avg_df["keep"] = avg_df["cluster_avg_width"].abs() >= silhouette_keep_threshold
+    # vec_keep = avg_df.loc[avg_df["keep"], "cluster"].astype(str).tolist()
+    # vec_excl = avg_df.loc[~avg_df["keep"], "cluster"].astype(str).tolist()
+
+    # if not vec_keep:
+    #     return None
+
+    n_isolates = m.shape[0]
+
+    # A valid Core-clustering context requires at least two isolates.
+    if n_isolates < 2:
         return None
 
-    labels, widths_df, avg_df = _fit_kmeans_and_silhouette(m, k=k, random_seed=random_seed)
-    kmeans_assignments = widths_df[["ID", "cluster"]].rename(columns={"ID": "name", "cluster": "km_cluster"})
+    if n_isolates <= max_k:
+        max_k = n_isolates - 1
 
-    avg_df["keep"] = avg_df["cluster_avg_width"].abs() >= silhouette_keep_threshold
-    vec_keep = avg_df.loc[avg_df["keep"], "cluster"].astype(str).tolist()
-    vec_excl = avg_df.loc[~avg_df["keep"], "cluster"].astype(str).tolist()
+    if k >= n_isolates:
+        k = max(1, n_isolates - 1)
 
-    if not vec_keep:
+    if k < 1:
         return None
+
+    if k == 1:
+        # The data-driven K-selection stage has determined that the
+        # isolates support one initial cluster. A numerical silhouette
+        # width is not defined for a one-cluster solution, but the
+        # cluster remains eligible for downstream SNP-cutoff refinement.
+        widths_df = pd.DataFrame(
+            {
+                "ID": m.index.astype(str),
+                "cluster": ["1"] * n_isolates,
+                "sil_width": [np.nan] * n_isolates,
+            }
+        )
+
+        avg_df = pd.DataFrame(
+            {
+                "cluster": ["1"],
+                "cluster_avg_width": [np.nan],
+                "keep": [True],
+                "selection_method": [
+                    "single_cluster_solution"
+                ],
+            }
+        )
+
+        kmeans_assignments = (
+            widths_df[["ID", "cluster"]]
+            .rename(
+                columns={
+                    "ID": "name",
+                    "cluster": "km_cluster",
+                }
+            )
+        )
+
+        vec_keep = ["1"]
+        vec_excl: list[str] = []
+
+    else:
+        labels, widths_df, avg_df = (
+            _fit_kmeans_and_silhouette(
+                m,
+                k=k,
+                random_seed=random_seed,
+            )
+        )
+
+        kmeans_assignments = (
+            widths_df[["ID", "cluster"]]
+            .rename(
+                columns={
+                    "ID": "name",
+                    "cluster": "km_cluster",
+                }
+            )
+        )
+
+        avg_df["keep"] = (
+            avg_df["cluster_avg_width"].abs()
+            >= silhouette_keep_threshold
+        )
+
+        avg_df["selection_method"] = "silhouette"
+
+        vec_keep = (
+            avg_df.loc[
+                avg_df["keep"],
+                "cluster",
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+        vec_excl = (
+            avg_df.loc[
+                ~avg_df["keep"],
+                "cluster",
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+        if not vec_keep:
+            return None
 
     mdf = matrix_to_mdf(m)
     list_clusters: list[pd.DataFrame] = []
@@ -630,7 +726,8 @@ def get_core_snp_clusters_r_compatible(
 
     for grp in vec_keep:
         names_vec = widths_df.loc[widths_df["cluster"].astype(str) == str(grp), "ID"].astype(str).tolist()
-        if len(names_vec) <= 2:
+        # A valid candidate group requires at least two isolates.
+        if len(names_vec) < 2:
             continue
 
         clster_ids_df = widths_df.loc[widths_df["cluster"].astype(str) == str(grp), ["ID", "cluster"]].copy()
@@ -641,20 +738,6 @@ def get_core_snp_clusters_r_compatible(
         keep_df1 = _prepare_keep_df1(compare_df, mdf, snpco)
         if keep_df1.empty:
             continue
-
-    
-        # if str(grp) == "3":
-        #     print("\n===== KMEANS CLUSTER 3 =====")
-        #     print(sorted(names_vec))
-
-        #     print("\n===== VALID SNP PAIRS <= SNP CUTOFF =====")
-        #     print(
-        #         keep_df1[
-        #             ["X1", "X2", "X3"]
-        #         ]
-        #         .sort_values("X3")
-        #         .to_string(index=False)
-        #     )
 
         keep_df2 = keep_df1.rename(columns={"snpcumsum": "clst", "X3": "SNPs"}).copy()
         df_filtx = keep_df2.sort_values("SNPs").reset_index(drop=True).copy()
@@ -713,7 +796,37 @@ def get_core_snp_clusters_r_compatible(
     if not list_clusters:
         return None
 
-    snp_clust = pd.concat(list_clusters, ignore_index=True).drop_duplicates()
+    snp_clust = (
+        pd.concat(
+            list_clusters,
+            ignore_index=True,
+        )
+        .drop_duplicates()
+    )
+
+    if snp_clust.empty:
+        return None
+
+    # Report only valid Core SNP clusters containing at least
+    # two distinct isolates.
+    valid_cluster_ids = (
+        snp_clust.groupby("cluster")["name"]
+        .nunique()
+        .loc[lambda counts: counts >= 2]
+        .index
+        .astype(str)
+    )
+
+    snp_clust = (
+        snp_clust.loc[
+            snp_clust["cluster"]
+            .astype(str)
+            .isin(valid_cluster_ids)
+        ]
+        .copy()
+        .reset_index(drop=True)
+    )
+
     if snp_clust.empty:
         return None
 
