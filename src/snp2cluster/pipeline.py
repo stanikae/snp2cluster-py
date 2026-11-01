@@ -504,11 +504,17 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                 if s in snp.index
             ]
 
-
-            # Match R behaviour:
-            # skip facilities with <=2 samples
-            if len(facility_samples) <= 2:
+            # A Core-clustering context is eligible when it contains
+            # at least two isolates. Final Core SNP clusters must also
+            # contain at least two isolates after SNP-cutoff refinement.
+            if len(facility_samples) < 2:
                 continue
+
+            print(
+                "Analysing Core context "
+                f"{context_value}: "
+                f"{len(facility_samples)} isolates"
+            )
 
             # ------------------------------------------------------------------
             # Keep TWO matrices:
