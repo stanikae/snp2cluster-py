@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import base64
 import html
 import os
 from collections.abc import Mapping, Sequence
@@ -479,6 +479,52 @@ def _render_manifest(
     """
 
 
+def _load_logo_data_uri(
+    logo_path: str | Path | None = None,
+) -> str | None:
+    """
+    Load a local logo file and return an embedded Base64 data URI.
+
+    If no explicit path is supplied, use the packaged SNP2Cluster-Py
+    logo. Returning None allows the report to use a text fallback.
+    """
+    if logo_path is None:
+        path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "snp2cluster-py.png"
+        )
+    else:
+        path = Path(logo_path)
+
+    if not path.is_file():
+        return None
+
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+    }
+
+    mime_type = mime_types.get(
+        path.suffix.lower()
+    )
+
+    if mime_type is None:
+        return None
+
+    try:
+        encoded = base64.b64encode(
+            path.read_bytes()
+        ).decode("ascii")
+    except OSError:
+        return None
+
+    return f"data:{mime_type};base64,{encoded}"
+
+
 def write_html_report(
     output_path: str | Path,
     *,
@@ -490,8 +536,27 @@ def write_html_report(
     tables_dir: str | Path | None = None,
     run_manifest: Mapping[str, object] | None = None,
     software_version: str | None = None,
+    logo_path: str | Path | None = None,
 ) -> Path:
     """Write the open scientific SNP2Cluster-Py HTML run report."""
+    logo_data_uri = _load_logo_data_uri(
+        logo_path
+    )
+
+    if logo_data_uri:
+        logo_html = (
+            '<div class="hero-logo-panel">'
+            '<img class="hero-logo" '
+            f'src="{logo_data_uri}" '
+            'alt="SNP2Cluster-Py logo">'
+            "</div>"
+        )
+    else:
+        logo_html = (
+            '<div class="hero-logo-fallback">'
+            "SNP2Cluster-Py"
+            "</div>"
+        )
     if not isinstance(assignments, pd.DataFrame):
         raise TypeError("assignments must be a pandas DataFrame")
     if transmission is not None and not isinstance(transmission, pd.DataFrame):
@@ -596,6 +661,55 @@ def write_html_report(
       background: linear-gradient(135deg, var(--brand-dark), var(--brand));
       border-radius: 16px;
       box-shadow: 0 8px 28px rgba(23, 63, 73, 0.18);
+    }}
+    .hero-layout {{
+      display: grid;
+      grid-template-columns: minmax(190px, 280px) minmax(0, 1fr);
+      gap: 28px;
+      align-items: center;
+    }}
+
+    .hero-logo-panel {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 150px;
+      padding: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    }}
+
+    .hero-logo {{
+      display: block;
+      width: 100%;
+      max-width: 250px;
+      max-height: 180px;
+      height: auto;
+      object-fit: contain;
+    }}
+
+    .hero-logo-fallback {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      padding: 20px;
+      color: var(--brand-dark);
+      background: #ffffff;
+      border-radius: 14px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      text-align: center;
+    }}
+
+    .hero-content {{
+      min-width: 0;
+    }}
+
+    .hero-content h1 {{
+      margin-top: 0;
     }}
     .hero h1 {{ margin: 0 0 8px; font-size: clamp(28px, 4vw, 44px); }}
     .hero p {{ margin: 4px 0; color: #e8f3f5; }}
@@ -730,6 +844,22 @@ def write_html_report(
       margin-top: 7px;
     }}
 
+    @media (max-width: 760px) {{
+      .hero-layout {{
+        grid-template-columns: 1fr;
+      }}
+
+      .hero-logo-panel {{
+        width: 100%;
+        max-width: 320px;
+        min-height: auto;
+      }}
+
+      .hero-logo {{
+        max-height: 140px;
+      }}
+    }}
+
     @media print {{
       .provenance-details {{
         break-inside: avoid;
@@ -738,16 +868,46 @@ def write_html_report(
       .provenance-details summary {{
         background: #ffffff;
       }}
+
+      .hero-layout {{
+        grid-template-columns: 180px 1fr;
+      }}
+
+      .hero-logo-panel {{
+        box-shadow: none;
+        border: 1px solid #cccccc;
+      }}
     }}
   </style>
 </head>
 <body>
 <main class="page">
   <header class="hero">
-    <h1>SNP2Cluster-Py Analysis Report</h1>
-    <p><strong>Project:</strong> {html.escape(project_name)}</p>
-    <p><strong>Analysis:</strong> {html.escape(cluster_type)} · <strong>Transmission level:</strong> {html.escape(transmission_level)}</p>
-    <p><strong>Report generated:</strong> {generated_at}</p>
+    <div class="hero-layout">
+      {logo_html}
+
+      <div class="hero-content">
+        <h1>SNP2Cluster-Py Analysis Report</h1>
+
+        <p>
+          <strong>Project:</strong>
+          {html.escape(project_name)}
+        </p>
+
+        <p>
+          <strong>Analysis:</strong>
+          {html.escape(cluster_type)}
+          ·
+          <strong>Transmission level:</strong>
+          {html.escape(transmission_level)}
+        </p>
+
+        <p>
+          <strong>Report generated:</strong>
+          {generated_at}
+        </p>
+      </div>
+    </div>
   </header>
 
   <section class="section" aria-labelledby="summary-heading">
