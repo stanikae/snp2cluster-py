@@ -15,22 +15,6 @@ import seaborn as sns
 _MISSING_LABEL = "Missing"
 _MISSING_COLOUR = "#D3D3D3"
 
-# _VIS_SHAPES = (
-#     "dot",
-#     "square",
-#     "triangle",
-#     "diamond",
-#     "star",
-#     "triangleDown",
-#     "hexagon",
-#     "ellipse",
-# )
-
-# TODO: Extend categorical shape support using a secondary style layer,
-# such as solid and dashed borders. Combining 12 immediately usable
-# VisJS shapes with two border styles would provide 24 distinct category
-# symbols without changing the underlying category-mapping logic.
-
 _VIS_SHAPES = (
     "dot",
     "square",
@@ -612,13 +596,13 @@ def _build_html_legend(
             (
                 '<div class="mst-legend-item">'
                 '<span class="mst-shape-symbol">'
-                f"{_legend_shape_svg(
-                    str(symbol['shape']),
-                    symbol['border_dashes'],
-                )}"
-                "</span>"
-                f"<span>{html.escape(label)}</span>"
-                "</div>"
+                + _legend_shape_svg(
+                    str(symbol["shape"]),
+                    symbol["border_dashes"],
+                )
+                + "</span>"
+                + f"<span>{html.escape(label)}</span>"
+                + "</div>"
             )
             for label, symbol
             in shape_values.items()
