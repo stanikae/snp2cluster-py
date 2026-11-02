@@ -135,12 +135,29 @@ def _display_label(path: Path) -> str:
     return stem.replace("__", " / ").replace("_", " ").strip() or path.stem
 
 
-def _metric_card(label: str, value: object) -> str:
-    display = "NA" if value is None else str(value)
+def _metric_card(
+    label: str,
+    value: object,
+    detail: str | None = None,
+) -> str:
+    """
+    Render a summary metric card with optional supporting detail.
+    """
+    detail_html = (
+        (
+            '<span class="metric-detail">'
+            f"{html.escape(detail)}"
+            "</span>"
+        )
+        if detail
+        else ""
+    )
+
     return (
-        '<div class="metric-card">'
-        f'<div class="metric-value">{html.escape(display)}</div>'
-        f'<div class="metric-label">{html.escape(label)}</div>'
+        '<div class="metric">'
+        f'<span class="metric-label">{html.escape(label)}</span>'
+        f'<strong class="metric-value">{html.escape(str(value))}</strong>'
+        f"{detail_html}"
         "</div>"
     )
 
@@ -525,6 +542,25 @@ def _load_logo_data_uri(
     return f"data:{mime_type};base64,{encoded}"
 
 
+def _format_percentage(
+    numerator: int,
+    denominator: int,
+) -> str:
+    """
+    Format a count as a percentage of the supplied denominator.
+    """
+    if denominator <= 0:
+        return "0.0%"
+
+    percentage = (
+        float(numerator)
+        / float(denominator)
+        * 100.0
+    )
+
+    return f"{percentage:.1f}%"
+
+
 def write_html_report(
     output_path: str | Path,
     *,
@@ -596,6 +632,20 @@ def write_html_report(
         ("Clusters", "transmission_cluster_id"),
     )
 
+    core_clustered_percentage = _format_percentage(
+        n_core_clustered,
+        n_samples,
+    )
+
+    transmission_clustered_percentage = (
+        _format_percentage(
+            n_transmission_clustered,
+            n_samples,
+        )
+        if transmission is not None
+        else None
+    )
+
     static_figures = _discover_files(
         figures_path,
         (
@@ -617,14 +667,78 @@ def write_html_report(
         _get(config, "analysis", "transmission_level")
     )
 
-    metrics = "".join(
-        (
-            _metric_card("Samples analysed", n_samples),
-            _metric_card("Core SNP clusters", n_core_clusters),
-            _metric_card("Core-clustered isolates", n_core_clustered),
-            _metric_card("Transmission clusters", n_transmission_clusters),
-            _metric_card("Transmission-clustered isolates", n_transmission_clustered),
+    metric_cards = [
+        _metric_card(
+            "Samples analysed",
+            n_samples,
+        ),
+        _metric_card(
+            "Core SNP clusters",
+            n_core_clusters,
+        ),
+        _metric_card(
+            "Core-clustered isolates",
+            n_core_clustered,
+            (
+                f"{core_clustered_percentage} "
+                "of analysed isolates"
+            ),
+        ),
+    ]
+
+    if transmission is not None:
+        metric_cards.extend(
+            [
+                _metric_card(
+                    "Transmission clusters",
+                    n_transmission_clusters,
+                ),
+                _metric_card(
+                    "Transmission-clustered isolates",
+                    n_transmission_clustered,
+                    (
+                        f"{transmission_clustered_percentage} "
+                        "of analysed isolates"
+                    ),
+                ),
+            ]
         )
+
+    metrics = "".join(metric_cards)
+
+    navigation_items = [
+        ("summary", "Summary"),
+        ("configuration", "Configuration"),
+        ("core-results", "Core SNP results"),
+    ]
+
+    if transmission is not None:
+        navigation_items.append(
+            (
+                "transmission-results",
+                "Transmission results",
+            )
+        )
+
+    navigation_items.extend(
+        [
+            (
+                "interactive-outputs",
+                "Interactive outputs",
+            ),
+            ("downloads", "Downloads"),
+            ("methods", "Methods"),
+            ("provenance", "Provenance"),
+        ]
+    )
+
+    navigation_html = "".join(
+        (
+            f'<a href="#{html.escape(section_id)}">'
+            f"{html.escape(label)}"
+            "</a>"
+        )
+        for section_id, label in navigation_items
     )
 
     document = f"""<!doctype html>
@@ -844,6 +958,69 @@ def write_html_report(
       margin-top: 7px;
     }}
 
+    html {{
+      scroll-behavior: smooth;
+      scroll-padding-top: 84px;
+    }}
+
+    .report-nav {{
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      margin: 18px 0 24px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 5px 18px rgba(20, 46, 58, 0.08);
+      backdrop-filter: blur(8px);
+    }}
+
+    .report-nav-inner {{
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      overflow-x: auto;
+      padding: 9px;
+      scrollbar-width: thin;
+    }}
+
+    .report-nav a {{
+      flex: 0 0 auto;
+      padding: 8px 11px;
+      color: var(--brand-dark);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.2;
+      text-decoration: none;
+      white-space: nowrap;
+    }}
+
+    .report-nav a:hover {{
+      color: #ffffff;
+      background: var(--brand-dark);
+    }}
+
+    .report-nav a:focus-visible {{
+      color: #ffffff;
+      background: var(--brand-dark);
+      outline: 3px solid rgba(20, 94, 128, 0.25);
+      outline-offset: 2px;
+    }}
+
+    .report-section {{
+      scroll-margin-top: 84px;
+    }}
+
+    .metric-detail {{
+      display: block;
+      margin-top: 5px;
+      color: #5f6f76;
+      font-size: 0.83rem;
+      font-weight: 600;
+      line-height: 1.25;
+    }}
+
     @media (max-width: 760px) {{
       .hero-layout {{
         grid-template-columns: 1fr;
@@ -876,6 +1053,14 @@ def write_html_report(
       .hero-logo-panel {{
         box-shadow: none;
         border: 1px solid #cccccc;
+      }}
+
+      .report-nav {{
+        display: none;
+      }}
+
+      .report-section {{
+        scroll-margin-top: 0;
       }}
     }}
   </style>
@@ -910,56 +1095,162 @@ def write_html_report(
     </div>
   </header>
 
-  <section class="section" aria-labelledby="summary-heading">
+  <nav
+    class="report-nav"
+    aria-label="Report sections"
+  >
+    <div class="report-nav-inner">
+      {navigation_html}
+    </div>
+  </nav>
+
+    <section
+    class="section report-section"
+    id="summary"
+    aria-labelledby="summary-heading"
+  >
     <h2 id="summary-heading">Analysis summary</h2>
     <div class="metrics">{metrics}</div>
   </section>
 
-  <section class="section" aria-labelledby="configuration-heading">
-    <h2 id="configuration-heading">Analysis configuration</h2>
+  <section
+    class="section report-section"
+    id="configuration"
+    aria-labelledby="configuration-heading"
+  >
+    <h2 id="configuration-heading">
+      Analysis configuration
+    </h2>
     {_render_table(_config_rows(config))}
   </section>
 
-  <section class="section" aria-labelledby="figures-heading">
-    <h2 id="figures-heading">Static scientific figures</h2>
-    {_render_static_gallery(static_figures, report_dir)}
+  <section
+    class="section report-section"
+    id="core-results"
+    aria-labelledby="figures-heading"
+  >
+    <h2 id="figures-heading">
+      Static scientific figures
+    </h2>
+    {_render_static_gallery(
+        static_figures,
+        report_dir,
+    )}
   </section>
 
-  <section class="section" aria-labelledby="mst-heading">
-    <h2 id="mst-heading">Interactive Core SNP minimum spanning trees</h2>
-    <p>Core MSTs summarize SNP-distance relationships and context-aware Core SNP clusters. Open each analysis group in a separate browser tab.</p>
-    {_render_link_cards(core_msts, report_dir, button_text="Open Core SNP MST")}
+  <section
+    class="section report-section"
+    id="interactive-outputs"
+    aria-labelledby="mst-heading"
+  >
+    <h2 id="mst-heading">
+      Interactive Core SNP minimum spanning trees
+    </h2>
+    <p>
+      Core MSTs summarize SNP-distance relationships and
+      context-aware Core SNP clusters. Open each analysis
+      group in a separate browser tab.
+    </p>
+    {_render_link_cards(
+        core_msts,
+        report_dir,
+        button_text="Open Core SNP MST",
+    )}
   </section>
 
-  <section class="section" aria-labelledby="network-heading">
-    <h2 id="network-heading">Interactive transmission-cluster networks</h2>
+  <section
+    class="section report-section"
+    aria-labelledby="network-heading"
+  >
+    <h2 id="network-heading">
+      Interactive transmission-cluster networks
+    </h2>
+
     <div class="callout">
-      Nodes represent isolates assigned to inferred transmission clusters. Network edges are post-clustering SNP minimum-spanning-tree connections used to visualize genetic relationships. They do not represent direct transmission and do not necessarily satisfy the configured temporal cutoff. Transmission-cluster membership may reflect qualifying chains through intermediate isolates. Review the transmission scatterplots for temporal patterns.
+      Nodes represent isolates assigned to inferred transmission
+      clusters. Network edges are post-clustering SNP
+      minimum-spanning-tree connections used to visualize genetic
+      relationships. They do not represent direct transmission and
+      do not necessarily satisfy the configured temporal cutoff.
+      Transmission-cluster membership may reflect qualifying chains
+      through intermediate isolates. Review the transmission
+      scatterplots for temporal patterns.
     </div>
+
     <div style="margin-top:16px">
-      {_render_link_cards(transmission_networks, report_dir, button_text="Open transmission network")}
+      {_render_link_cards(
+          transmission_networks,
+          report_dir,
+          button_text="Open transmission network",
+      )}
     </div>
   </section>
 
-  <section class="section" aria-labelledby="tables-heading">
+  <section
+    class="section report-section"
+    id="downloads"
+    aria-labelledby="tables-heading"
+  >
     <h2 id="tables-heading">Output tables</h2>
-    <p>Download the machine-readable results generated for this run.</p>
-    {_render_downloads(table_files, report_dir)}
+    <p>
+      Download the machine-readable results generated for this run.
+    </p>
+    {_render_downloads(
+        table_files,
+        report_dir,
+    )}
   </section>
 
-  <section class="section" aria-labelledby="methods-heading">
-    <h2 id="methods-heading">Methods and interpretation guidance</h2>
+  <section
+    class="section report-section"
+    id="methods"
+    aria-labelledby="methods-heading"
+  >
+    <h2 id="methods-heading">
+      Methods and interpretation guidance
+    </h2>
+
     <h3>Core SNP clustering</h3>
-    <p>Core SNP clustering groups isolates within the configured ordered Core context. The context determines which isolates are eligible to be clustered together, while the context-aware cluster label keeps cluster identifiers interpretable across analytical groups.</p>
+    <p>
+      Core SNP clustering groups isolates within the configured
+      ordered Core context. The context determines which isolates
+      are eligible to be clustered together, while the context-aware
+      cluster label keeps cluster identifiers interpretable across
+      analytical groups.
+    </p>
+
     <h3>Transmission clustering</h3>
-    <p>Transmission analysis uses the configured epidemiological grouping, collection dates, Core SNP clusters, SNP threshold, and temporal threshold. Cluster membership should be interpreted alongside the temporal scatterplots and available epidemiological information.</p>
+    <p>
+      Transmission analysis uses the configured epidemiological
+      grouping, collection dates, Core SNP clusters, SNP threshold,
+      and temporal threshold. Cluster membership should be
+      interpreted alongside the temporal scatterplots and available
+      epidemiological information.
+    </p>
+
     <h3>Important limitation</h3>
-    <p>This report summarizes analytical outputs produced by SNP2Cluster-Py. Results should be interpreted alongside the configured parameters, laboratory information, epidemiological metadata, and public-health context. Network connections are visualization aids and should not be interpreted as confirmed direct transmission events.</p>
+    <p>
+      This report summarizes analytical outputs produced by
+      SNP2Cluster-Py. Results should be interpreted alongside the
+      configured parameters, laboratory information, epidemiological
+      metadata, and public-health context. Network connections are
+      visualization aids and should not be interpreted as confirmed
+      direct transmission events.
+    </p>
   </section>
 
-  <section class="section" aria-labelledby="provenance-heading">
-    <h2 id="provenance-heading">Reproducibility and provenance</h2>
-    {_render_manifest(run_manifest, software_version)}
+  <section
+    class="section report-section"
+    id="provenance"
+    aria-labelledby="provenance-heading"
+  >
+    <h2 id="provenance-heading">
+      Reproducibility and provenance
+    </h2>
+    {_render_manifest(
+        run_manifest,
+        software_version,
+    )}
   </section>
 
   <footer>
