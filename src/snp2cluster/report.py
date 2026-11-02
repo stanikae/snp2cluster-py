@@ -116,23 +116,95 @@ def _discover_files(directory: Path | None, patterns: Sequence[str]) -> list[Pat
 
 
 def _display_label(path: Path) -> str:
-    """Create a concise label from a generated output filename."""
+    """Create a concise, readable label from an output filename."""
     stem = path.stem
 
-    for prefix in (
-        "01_k_selection_",
-        "01_k_selection",
-        "02_transmission_scatter_",
-        "02_transmission_scatter",
-        "03_core_heatmap",
-        "04_mst_",
-        "05_transmission_network_",
-    ):
-        if stem.startswith(prefix):
-            stem = stem[len(prefix) :]
-            break
+    if stem.startswith("03_core_heatmap"):
+        return "Annotated Core SNP heatmap"
 
-    return stem.replace("__", " / ").replace("_", " ").strip() or path.stem
+    if stem.startswith("02_transmission_scatter_"):
+        context = stem.removeprefix(
+            "02_transmission_scatter_"
+        )
+
+        context_label = (
+            context
+            .replace("__", " / ")
+            .replace("_", " ")
+            .strip()
+        )
+
+        return (
+            f"Transmission scatterplot: {context_label}"
+            if context_label
+            else "Transmission scatterplot"
+        )
+
+    if stem.startswith("02_transmission_scatter"):
+        return "Transmission scatterplot"
+
+    if stem.startswith("01_k_selection_"):
+        context = stem.removeprefix(
+            "01_k_selection_"
+        )
+
+        context_label = (
+            context
+            .replace("__", " / ")
+            .replace("_", " ")
+            .strip()
+        )
+
+        return (
+            f"K-selection diagnostic: {context_label}"
+            if context_label
+            else "K-selection diagnostic"
+        )
+
+    if stem.startswith("01_k_selection"):
+        return "K-selection diagnostic"
+
+    if stem.startswith("04_mst_"):
+        context = stem.removeprefix("04_mst_")
+
+        context_label = (
+            context
+            .replace("__", " / ")
+            .replace("_", " ")
+            .strip()
+        )
+
+        return (
+            f"Core SNP MST: {context_label}"
+            if context_label
+            else "Core SNP MST"
+        )
+
+    if stem.startswith("05_transmission_network_"):
+        context = stem.removeprefix(
+            "05_transmission_network_"
+        )
+
+        context_label = (
+            context
+            .replace("__", " / ")
+            .replace("_", " ")
+            .strip()
+        )
+
+        return (
+            f"Transmission network: {context_label}"
+            if context_label
+            else "Transmission network"
+        )
+
+    return (
+        stem
+        .replace("__", " / ")
+        .replace("_", " ")
+        .strip()
+        or path.stem
+    )
 
 
 def _metric_card(
@@ -646,20 +718,47 @@ def write_html_report(
         else None
     )
 
-    static_figures = _discover_files(
+    k_selection_figures = _discover_files(
         figures_path,
-        (
-            "01_k_selection*.png",
-            "02_transmission_scatter*.png",
-            "03_core_heatmap*.png",
-        ),
+        ("01_k_selection*.png",),
     )
+
+    transmission_scatterplots = _discover_files(
+        figures_path,
+        ("02_transmission_scatter*.png",),
+    )
+
+    core_heatmaps = _discover_files(
+        figures_path,
+        ("03_core_heatmap*.png",),
+    )
+
     core_msts = _discover_files(figures_path, ("04_mst_*.html",))
     transmission_networks = _discover_files(
         figures_path,
         ("05_transmission_network_*.html",),
     )
     table_files = _discover_files(tables_path, ("*.csv", "*.tsv"))
+
+    core_heatmap_html = _render_static_gallery(
+        core_heatmaps,
+        report_dir,
+    )
+
+    transmission_scatterplot_html = (
+        _render_static_gallery(
+            transmission_scatterplots,
+            report_dir,
+        )
+        if transmission is not None
+        else ""
+    )
+
+    k_selection_html = _render_static_gallery(
+        k_selection_figures,
+        report_dir,
+    )
+
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     cluster_type = _normalise(_get(config, "analysis", "cluster_type"))
@@ -723,6 +822,10 @@ def write_html_report(
     navigation_items.extend(
         [
             (
+                "k-selection",
+                "K-selection diagnostics",
+            ),
+            (
                 "interactive-outputs",
                 "Interactive outputs",
             ),
@@ -740,6 +843,31 @@ def write_html_report(
         )
         for section_id, label in navigation_items
     )
+
+
+    if transmission is not None:
+        transmission_results_html = f"""
+  <section
+    class="section report-section"
+    id="transmission-results"
+    aria-labelledby="transmission-results-heading"
+  >
+    <h2 id="transmission-results-heading">
+      Transmission results
+    </h2>
+
+    <p>
+      Transmission scatterplots show temporal and SNP-distance
+      patterns within the configured epidemiological analysis groups.
+    </p>
+
+    <div class="transmission-figure-gallery">
+      {transmission_scatterplot_html}
+    </div>
+  </section>
+        """
+    else:
+        transmission_results_html = ""
 
     document = f"""<!doctype html>
 <html lang="en">
@@ -1021,6 +1149,60 @@ def write_html_report(
       line-height: 1.25;
     }}
 
+    .primary-figure .gallery {{
+      grid-template-columns: 1fr;
+    }}
+
+    .primary-figure .figure-card {{
+      max-width: none;
+    }}
+
+    .primary-figure img {{
+      width: 100%;
+      max-height: none;
+      object-fit: contain;
+    }}
+
+    .transmission-figure-gallery .gallery {{
+      grid-template-columns: repeat(
+        auto-fit,
+        minmax(340px, 1fr)
+      );
+    }}
+
+    .figure-disclosure {{
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfd;
+      overflow: hidden;
+    }}
+
+    .figure-disclosure summary {{
+      padding: 14px 16px;
+      color: var(--brand-dark);
+      background: #f3f7f8;
+      cursor: pointer;
+      font-weight: 700;
+    }}
+
+    .figure-disclosure summary:hover {{
+      background: #eaf2f4;
+    }}
+
+    .figure-disclosure summary:focus-visible {{
+      outline: 3px solid rgba(20, 94, 128, 0.25);
+      outline-offset: -3px;
+    }}
+
+    .figure-disclosure[open] summary {{
+      border-bottom: 1px solid var(--line);
+    }}
+
+    .figure-disclosure-content {{
+      padding: 16px;
+    }}
+
     @media (max-width: 760px) {{
       .hero-layout {{
         grid-template-columns: 1fr;
@@ -1034,6 +1216,14 @@ def write_html_report(
 
       .hero-logo {{
         max-height: 140px;
+      }}
+
+      .transmission-figure-gallery .gallery {{
+        grid-template-columns: 1fr;
+      }}
+
+      .figure-disclosure-content {{
+        padding: 10px;
       }}
     }}
 
@@ -1061,6 +1251,14 @@ def write_html_report(
 
       .report-section {{
         scroll-margin-top: 0;
+      }}
+
+      .figure-disclosure {{
+        break-inside: avoid;
+      }}
+
+      .figure-disclosure summary {{
+        background: #ffffff;
       }}
     }}
   </style>
@@ -1127,15 +1325,51 @@ def write_html_report(
   <section
     class="section report-section"
     id="core-results"
-    aria-labelledby="figures-heading"
+    aria-labelledby="core-results-heading"
   >
-    <h2 id="figures-heading">
-      Static scientific figures
+    <h2 id="core-results-heading">
+      Core SNP results
     </h2>
-    {_render_static_gallery(
-        static_figures,
-        report_dir,
-    )}
+
+    <p>
+      The annotated Core SNP heatmap summarises pairwise SNP-distance
+      relationships and the retained context-aware Core SNP cluster
+      assignments.
+    </p>
+
+    <div class="primary-figure">
+      {core_heatmap_html}
+    </div>
+  </section>
+
+  {transmission_results_html}
+
+  <section
+    class="section report-section"
+    id="k-selection"
+    aria-labelledby="k-selection-heading"
+  >
+    <h2 id="k-selection-heading">
+      K-selection diagnostics
+    </h2>
+
+    <p>
+      These figures document the initial data-driven cluster-number
+      selection undertaken within eligible Core-clustering contexts.
+      A selected K of 1 is valid where the SNP-distance data support
+      one initial group before SNP-cutoff refinement.
+    </p>
+
+    <details class="figure-disclosure">
+      <summary>
+        View K-selection diagnostic figures
+        ({len(k_selection_figures)})
+      </summary>
+
+      <div class="figure-disclosure-content">
+        {k_selection_html}
+      </div>
+    </details>
   </section>
 
   <section
