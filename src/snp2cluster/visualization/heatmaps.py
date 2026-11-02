@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -311,6 +312,153 @@ def prepare_heatmap_data(
     return matrix, annotations
 
 
+def _legend_grid(
+    category_count: int,
+    *,
+    max_rows: int = 14,
+) -> tuple[int, int]:
+    """
+    Calculate legend columns and rows for a category count.
+    """
+    if category_count < 1:
+        return 1, 0
+
+    n_columns = max(
+        1,
+        math.ceil(
+            category_count
+            / max_rows
+        ),
+    )
+
+    n_rows = math.ceil(
+        category_count
+        / n_columns
+    )
+
+    return n_columns, n_rows
+
+
+def _legend_height(
+    category_count: int,
+    *,
+    max_rows: int = 14,
+) -> float:
+    """
+    Estimate the figure-relative height required by a legend.
+    """
+    _, n_rows = _legend_grid(
+        category_count,
+        max_rows=max_rows,
+    )
+
+    if n_rows == 0:
+        return 0.0
+
+    return (
+        0.055
+        + 0.027 * n_rows
+    )
+
+
+def _legend_panel_width(
+    category_count: int,
+    *,
+    max_rows: int = 14,
+) -> float:
+    """
+    Estimate horizontal spacing required by a multi-column legend.
+    """
+    n_columns, _ = _legend_grid(
+        category_count,
+        max_rows=max_rows,
+    )
+
+    return (
+        0.20
+        + 0.13 * max(
+            0,
+            n_columns - 1,
+        )
+    )
+
+
+def _plan_legend_layout(
+    category_counts: Sequence[int],
+    *,
+    start_x: float = 1.02,
+    start_y: float = 0.94,
+    bottom_limit: float = 0.06,
+    vertical_gap: float = 0.025,
+    panel_gap: float = 0.04,
+    max_rows: int = 14,
+) -> list[dict[str, float | int]]:
+    """
+    Plan non-overlapping positions for categorical legends.
+
+    Legends are stacked vertically until the available figure height
+    is exhausted. The next legend then begins in a new panel to the
+    right of the existing panel.
+    """
+    placements: list[
+        dict[str, float | int]
+    ] = []
+
+    current_x = start_x
+    current_y = start_y
+    current_panel_width = 0.0
+
+    for category_count in category_counts:
+        n_columns, n_rows = _legend_grid(
+            category_count,
+            max_rows=max_rows,
+        )
+
+        required_height = _legend_height(
+            category_count,
+            max_rows=max_rows,
+        )
+
+        required_width = _legend_panel_width(
+            category_count,
+            max_rows=max_rows,
+        )
+
+        if (
+            placements
+            and current_y - required_height
+            < bottom_limit
+        ):
+            current_x += (
+                current_panel_width
+                + panel_gap
+            )
+
+            current_y = start_y
+            current_panel_width = 0.0
+
+        placements.append(
+            {
+                "x": current_x,
+                "y": current_y,
+                "ncol": n_columns,
+                "nrows": n_rows,
+                "height": required_height,
+            }
+        )
+
+        current_y -= (
+            required_height
+            + vertical_gap
+        )
+
+        current_panel_width = max(
+            current_panel_width,
+            required_width,
+        )
+
+    return placements
+
 def plot_annotated_snp_heatmap(
     snp_matrix: pd.DataFrame,
     annotation_df: pd.DataFrame,
@@ -423,20 +571,36 @@ def plot_annotated_snp_heatmap(
         y=1.02,
     )
 
-
     # ---------------------------------------------------------
     # Metadata legends
     #
-    # Anchor legends to the figure rather than the heatmap axes.
-    # bbox_inches="tight" will expand the exported canvas to
-    # include the external legend column.
+    # Legend groups are packed into adaptive side panels.
+    # High-cardinality legends wrap across multiple columns,
+    # and new side panels are created when vertical space is
+    # exhausted.
     # ---------------------------------------------------------
-
-    legend_y = 0.94
     legend_artists = []
 
-    for column in annotation_columns:
+    legend_category_counts = [
+        len(colour_maps[column])
+        for column in annotation_columns
+    ]
 
+    legend_layout = _plan_legend_layout(
+        legend_category_counts,
+        start_x=1.02,
+        start_y=0.94,
+        bottom_limit=0.06,
+        vertical_gap=0.025,
+        panel_gap=0.04,
+        max_rows=14,
+    )
+
+    for column, placement in zip(
+        annotation_columns,
+        legend_layout,
+        strict=True,
+    ):
         handles = [
             Patch(
                 facecolor=colour,
@@ -452,10 +616,12 @@ def plot_annotated_snp_heatmap(
             title=display_labels[column],
             loc="upper left",
             bbox_to_anchor=(
-                1.02,
-                legend_y,
+                float(placement["x"]),
+                float(placement["y"]),
             ),
-            bbox_transform=cluster_grid.fig.transFigure,
+            bbox_transform=(
+                cluster_grid.fig.transFigure
+            ),
             frameon=False,
             borderaxespad=0,
             fontsize=8,
@@ -463,21 +629,13 @@ def plot_annotated_snp_heatmap(
             handlelength=1.4,
             handletextpad=0.6,
             labelspacing=0.35,
+            ncol=int(placement["ncol"]),
+            columnspacing=1.0,
         )
 
         legend_artists.append(
             legend
         )
-
-        # Reserve vertical space according to the number
-        # of categories in the current legend.
-        legend_height = min(
-            0.055
-            + 0.030 * len(handles),
-            0.27,
-        )
-
-        legend_y -= legend_height
 
     output_dir = Path(
         output_dir
