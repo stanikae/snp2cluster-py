@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 from importlib import metadata
 from pathlib import Path
 import pandas as pd
 
+
+from . import __version__
 from .audit import create_run_dirs, write_manifest, write_validation_log
+
 from .clustering import choose_optimal_k, assign_kmeans_clusters, generate_snp_chains
 from .config import SNP2ClusterConfig
 from .io import read_table, read_snp_matrix, write_csv
@@ -112,7 +116,17 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
     validation_messages = validate_all(config, strict_files=True)
     dirs = create_run_dirs(config)
     write_validation_log(dirs, validation_messages)
-    write_manifest(config, dirs, validation_messages)
+    manifest_path = write_manifest(
+        config,
+        dirs,
+        validation_messages,
+    )
+
+    run_manifest = json.loads(
+        manifest_path.read_text(
+            encoding="utf-8",
+        )
+    )
 
     if validation_messages:
         raise ValidationError("Input validation failed. See audit/validation_log.txt")
@@ -504,11 +518,17 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                 if s in snp.index
             ]
 
-
-            # Match R behaviour:
-            # skip facilities with <=2 samples
-            if len(facility_samples) <= 2:
+            # A Core-clustering context is eligible when it contains
+            # at least two isolates. Final Core SNP clusters must also
+            # contain at least two isolates after SNP-cutoff refinement.
+            if len(facility_samples) < 2:
                 continue
+
+            print(
+                "Analysing Core context "
+                f"{context_value}: "
+                f"{len(facility_samples)} isolates"
+            )
 
             # ------------------------------------------------------------------
             # Keep TWO matrices:
@@ -1360,8 +1380,9 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
             config=config,
             figures_dir=dirs["figures"],
             tables_dir=dirs["tables"],
-            # software_version=__version__, # NameError: name '__version__' is not defined
-            # run_manifest=run_manifest, # NameError: name 'run_manifest' is not defined
+            software_version=__version__,
+            run_manifest=run_manifest,
+
         )
 
 

@@ -43,9 +43,21 @@ _VIS_SHAPES = (
     "circle",
     "box",
     "database",
-    "text",
 )
 
+_VIS_BORDER_PATTERNS: tuple[
+    bool | tuple[int, int],
+    ...,
+] = (
+    False,
+    (6, 4),
+    (2, 3),
+)
+
+_MAX_VIS_SYMBOLS = (
+    len(_VIS_SHAPES)
+    * len(_VIS_BORDER_PATTERNS)
+)
 
 
 
@@ -185,9 +197,14 @@ def _category_colour_map(
 
 def _shape_map(
     series: pd.Series,
-) -> dict[str, str]:
-    """Assign deterministic VisJS shapes to categories."""
+) -> dict[str, dict[str, object]]:
+    """
+    Assign deterministic VisJS shape and border combinations.
 
+    Node fill colour remains reserved for Core SNP cluster
+    membership. Sequence type or the configured shape variable is
+    represented by the combination of node shape and border pattern.
+    """
     labels = sorted(
         {
             _normalise_category(value)
@@ -196,13 +213,51 @@ def _shape_map(
         key=_natural_key,
     )
 
-    return {
-        label: _VIS_SHAPES[
-            index % len(_VIS_SHAPES)
-        ]
-        for index, label
-        in enumerate(labels)
-    }
+    if len(labels) > _MAX_VIS_SYMBOLS:
+        raise ValueError(
+            "Cannot assign unique MST symbols to "
+            f"{len(labels)} categories. "
+            f"The maximum supported number is "
+            f"{_MAX_VIS_SYMBOLS}."
+        )
+
+    symbol_map: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for index, label in enumerate(labels):
+        shape_index = (
+            index
+            % len(_VIS_SHAPES)
+        )
+
+        border_index = (
+            index
+            // len(_VIS_SHAPES)
+        )
+
+        border_pattern = (
+            _VIS_BORDER_PATTERNS[
+                border_index
+            ]
+        )
+
+        if border_pattern is False:
+            border_dashes: bool | list[int] = False
+        else:
+            border_dashes = list(
+                border_pattern
+            )
+
+        symbol_map[label] = {
+            "shape": _VIS_SHAPES[
+                shape_index
+            ],
+            "border_dashes": border_dashes,
+        }
+
+    return symbol_map
 
 
 def _resolve_sample_id_column(
@@ -419,66 +474,109 @@ def prepare_mst_annotations(
 
 def _legend_shape_svg(
     shape: str,
+    border_dashes: bool | Sequence[int] = False,
 ) -> str:
-    """Return an inline SVG representation of a VisJS node shape."""
+    """
+    Return an inline SVG representation of an MST node symbol.
+    """
+    if (
+        border_dashes
+        and not isinstance(
+            border_dashes,
+            bool,
+        )
+    ):
+        dash_values = " ".join(
+            str(value)
+            for value in border_dashes
+        )
+
+        dash_attribute = (
+            f' stroke-dasharray="{dash_values}"'
+        )
+    else:
+        dash_attribute = ""
+
+    shared_attributes = (
+        'fill="#777777" '
+        'stroke="#444444" '
+        'stroke-width="1.5"'
+        f"{dash_attribute}"
+    )
 
     svg_shapes = {
         "dot": (
             '<circle cx="10" cy="10" r="7" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "square": (
             '<rect x="3" y="3" width="14" height="14" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "triangle": (
             '<polygon points="10,2 18,17 2,17" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "triangleDown": (
             '<polygon points="2,3 18,3 10,18" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "diamond": (
             '<polygon points="10,2 18,10 10,18 2,10" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "star": (
             '<polygon '
             'points="10,1 12.5,7 19,7.5 14,11.5 '
             '15.5,18 10,14.5 4.5,18 6,11.5 '
             '1,7.5 7.5,7" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.2" />'
+            f"{shared_attributes} />"
         ),
         "hexagon": (
             '<polygon points="5,2 15,2 19,10 '
             '15,18 5,18 1,10" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
         ),
         "ellipse": (
             '<ellipse cx="10" cy="10" rx="8" ry="5.5" '
-            'fill="#777777" stroke="#444444" '
-            'stroke-width="1.5" />'
+            f"{shared_attributes} />"
+        ),
+        "circle": (
+            '<circle cx="10" cy="10" r="8" '
+            f"{shared_attributes} />"
+        ),
+        "box": (
+            '<rect x="2" y="4" width="16" height="12" '
+            'rx="3" ry="3" '
+            f"{shared_attributes} />"
+        ),
+        "database": (
+            '<ellipse cx="10" cy="5" rx="8" ry="3" '
+            f"{shared_attributes} />"
+            '<path d="M2 5 V15 '
+            'C2 18 18 18 18 15 V5" '
+            'fill="#777777" '
+            'stroke="#444444" '
+            'stroke-width="1.5"'
+            f"{dash_attribute} />"
+            '<ellipse cx="10" cy="15" rx="8" ry="3" '
+            'fill="none" '
+            'stroke="#444444" '
+            'stroke-width="1.5"'
+            f"{dash_attribute} />"
         ),
     }
 
-    shape_markup = svg_shapes.get(
-        shape,
-        svg_shapes["dot"],
-    )
+    if shape not in svg_shapes:
+        raise ValueError(
+            f"Unsupported MST legend shape: {shape}"
+        )
 
     return (
         '<svg class="mst-shape-svg" '
         'viewBox="0 0 20 20" '
         'aria-hidden="true">'
-        f"{shape_markup}"
+        f"{svg_shapes[shape]}"
         "</svg>"
     )
 
@@ -489,7 +587,10 @@ def _build_html_legend(
     split_value: str,
     core_colours: Mapping[str, str],
     shape_column: str | None,
-    shape_values: Mapping[str, str],
+    shape_values: Mapping[
+    str,
+    Mapping[str, object],
+],
 ) -> str:
     """Build the fixed title and legend panel for the HTML MST."""
 
@@ -511,12 +612,15 @@ def _build_html_legend(
             (
                 '<div class="mst-legend-item">'
                 '<span class="mst-shape-symbol">'
-                f"{_legend_shape_svg(shape)}"
+                f"{_legend_shape_svg(
+                    str(symbol['shape']),
+                    symbol['border_dashes'],
+                )}"
                 "</span>"
                 f"<span>{html.escape(label)}</span>"
                 "</div>"
             )
-            for label, shape
+            for label, symbol
             in shape_values.items()
         )
 
@@ -526,6 +630,11 @@ def _build_html_legend(
                 {html.escape(shape_column)}
             </div>
             {shape_items}
+            <div class="mst-shape-note">
+                Categories are encoded by the combination of
+                node shape and border pattern. Node fill colour
+                represents Core SNP cluster membership.
+            </div>
         </div>
         """
 
@@ -605,6 +714,13 @@ def _build_html_legend(
             width: 18px;
             height: 18px;
             overflow: visible;
+        }}
+
+        .mst-shape-note {{
+            margin-top: 8px;
+            color: #666666;
+            font-size: 10px;
+            line-height: 1.35;
         }}
 
         .mst-edge-note {{
@@ -788,8 +904,16 @@ def save_interactive_core_mst(
             row["_core_cluster"]
         ]
 
-        node_shape = shape_values[
+        node_symbol = shape_values[
             row["_shape_group"]
+        ]
+
+        node_shape = str(
+            node_symbol["shape"]
+        )
+
+        border_dashes = node_symbol[
+            "border_dashes"
         ]
 
         network.add_node(
@@ -803,6 +927,9 @@ def save_interactive_core_mst(
                 tooltip
             ),
             shape=node_shape,
+            shapeProperties={
+                "borderDashes": border_dashes,
+            },
             size=18,
             color={
                 "background": node_colour,
