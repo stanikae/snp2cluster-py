@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snp2cluster-py"
-version = "1.0.0"
+version = "1.1.0"
 description = "A context-aware Python framework for Core SNP clustering and epidemiologically informed transmission-cluster detection."
 readme = "README.md"
 requires-python = ">=3.10"
