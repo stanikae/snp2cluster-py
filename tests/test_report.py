@@ -7,6 +7,7 @@ import pandas as pd
 from snp2cluster.report import (
     _display_label,
     _format_percentage,
+    _output_file_description,
     write_html_report,
 )
 
@@ -57,6 +58,22 @@ def test_write_html_report_discovers_outputs_and_escapes_html(
         / "core_snp_clusters.csv"
     ).write_text(
         "sample_id\nA\n",
+        encoding="utf-8",
+    )
+
+    (
+        tables
+        / "kmeans_cluster_assignments.csv"
+    ).write_text(
+        "sample_id,kmeans_cluster\nA,1\n",
+        encoding="utf-8",
+    )
+
+    (
+        tables
+        / "transmission_clusters.csv"
+    ).write_text(
+        "sample_id,transmission_cluster_id\nA,1\n",
         encoding="utf-8",
     )
 
@@ -264,6 +281,26 @@ def test_write_html_report_discovers_outputs_and_escapes_html(
         "View K-selection diagnostic figures"
         in document
     )
+    # Revised scientific interpretation guidance.
+    assert (
+        "contains at least two isolates"
+        in document
+    )
+
+    assert (
+        "An initial K of 1 is a valid data-driven result"
+        in document
+    )
+
+    assert (
+        "Only final Core SNP clusters containing"
+        in document
+    )
+
+    assert (
+        "confirmed direct transmission events"
+        in document
+    )
 
     # Structured provenance.
     assert "1.2.3" in document
@@ -318,6 +355,22 @@ def test_write_html_report_discovers_outputs_and_escapes_html(
     assert "2.5.3" in document
     assert "Sklearn" in document
     assert "1.9.1" in document
+
+    assert (
+        "Retained context-aware Core SNP clusters"
+        in document
+    )
+
+    assert (
+        "Initial K-means cluster assignments generated "
+        "before SNP-cutoff refinement."
+        in document
+    )
+
+    assert (
+        "Inferred transmission-cluster assignments"
+        in document
+    )
 
 
 def test_write_html_report_supports_core_only_mode(
@@ -589,4 +642,35 @@ def test_display_label_for_scientific_figures() -> None:
             Path("01_k_selection_ST152.png")
         )
         == "K-selection diagnostic: ST152"
+    )
+
+
+def test_output_file_descriptions() -> None:
+    assert (
+        _output_file_description(
+            Path("core_snp_clusters.csv")
+        )
+        == (
+            "Retained context-aware Core SNP clusters and their "
+            "member isolates."
+        )
+    )
+
+    assert (
+        _output_file_description(
+            Path("kmeans_cluster_assignments.csv")
+        )
+        == (
+            "Initial K-means cluster assignments generated before "
+            "SNP-cutoff refinement."
+        )
+    )
+
+    assert (
+        _output_file_description(
+            Path("unknown_output.csv")
+        )
+        == (
+            "Machine-readable output generated for this analysis run."
+        )
     )

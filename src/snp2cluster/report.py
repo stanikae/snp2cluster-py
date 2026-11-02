@@ -324,21 +324,110 @@ def _render_link_cards(
     return '<div class="link-grid">' + "".join(cards) + "</div>"
 
 
-def _render_downloads(files: Sequence[Path], report_dir: Path) -> str:
-    if not files:
-        return '<p class="empty-state">No output tables were found.</p>'
+def _output_file_description(
+    path: Path,
+) -> str:
+    """
+    Return a concise description for a generated output table.
+    """
+    descriptions = {
+        "core_snp_clusters.csv": (
+            "Retained context-aware Core SNP clusters and their "
+            "member isolates."
+        ),
+        "isolate_cluster_assignments.csv": (
+            "Isolate-level Core SNP and transmission-cluster "
+            "assignments for the run."
+        ),
+        "k_selection_diagnostics.csv": (
+            "K-means cluster-level diagnostic results, including "
+            "average silhouette widths, retention status and "
+            "selection method."
+        ),
+        "kmeans_cluster_assignments.csv": (
+            "Initial K-means cluster assignments generated before "
+            "SNP-cutoff refinement."
+        ),
+        "minimum_spanning_tree_edges.csv": (
+            "Core SNP minimum-spanning-tree edges used in the "
+            "interactive MST outputs."
+        ),
+        "transmission_clusters.csv": (
+            "Inferred transmission-cluster assignments produced "
+            "after genomic, epidemiological and temporal analysis."
+        ),
+        "transmission_context.csv": (
+            "Isolate-level epidemiological and temporal context used "
+            "during transmission-cluster analysis."
+        ),
+        "transmission_network_edges.csv": (
+            "Edges used to visualise genetic relationships within "
+            "inferred transmission clusters."
+        ),
+        "transmission_network_nodes.csv": (
+            "Node attributes used in the interactive transmission "
+            "network outputs."
+        ),
+    }
 
-    items = []
+    return descriptions.get(
+        path.name,
+        "Machine-readable output generated for this analysis run.",
+    )
 
-    for path in files:
-        url = html.escape(_relative_url(path, report_dir), quote=True)
-        items.append(
-            "<li>"
-            f'<a href="{url}" download>{html.escape(path.name)}</a>'
-            "</li>"
+
+def _render_downloads(
+    paths: Sequence[Path],
+    report_dir: Path,
+) -> str:
+    """
+    Render downloadable output files with concise descriptions.
+    """
+    if not paths:
+        return (
+            '<p class="empty-state">'
+            "No output tables were found."
+            "</p>"
         )
 
-    return '<ul class="download-list">' + "".join(items) + "</ul>"
+    cards: list[str] = []
+
+    for path in paths:
+        relative_path = os.path.relpath(
+            path,
+            start=report_dir,
+        )
+
+        href = html.escape(
+            relative_path,
+            quote=True,
+        )
+
+        label = html.escape(
+            _display_label(path)
+        )
+
+        description = html.escape(
+            _output_file_description(path)
+        )
+
+        cards.append(
+            '<article class="download-card">'
+            '<div class="download-card-content">'
+            f"<h3>{label}</h3>"
+            f'<p class="download-description">{description}</p>'
+            "</div>"
+            f'<a class="button" href="{href}" download>'
+            "Download"
+            "</a>"
+            "</article>"
+        )
+
+    return (
+        '<div class="download-list">'
+        + "".join(cards)
+        + "</div>"
+    )
 
 
 def _humanize_key(value: object) -> str:
@@ -1203,6 +1292,41 @@ def write_html_report(
       padding: 16px;
     }}
 
+    .download-list {{
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }}
+
+    .download-card {{
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfcfd;
+    }}
+
+    .download-card-content {{
+      min-width: 0;
+    }}
+
+    .download-card h3 {{
+      margin: 0 0 5px;
+      color: var(--brand-dark);
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+    }}
+
+    .download-description {{
+      margin: 0;
+      color: #5f6f76;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }}
+
     @media (max-width: 760px) {{
       .hero-layout {{
         grid-template-columns: 1fr;
@@ -1225,6 +1349,12 @@ def write_html_report(
       .figure-disclosure-content {{
         padding: 10px;
       }}
+
+      .download-card {{
+        align-items: flex-start;
+        flex-direction: column;
+      }}
+
     }}
 
     @media print {{
@@ -1356,8 +1486,12 @@ def write_html_report(
     <p>
       These figures document the initial data-driven cluster-number
       selection undertaken within eligible Core-clustering contexts.
-      A selected K of 1 is valid where the SNP-distance data support
-      one initial group before SNP-cutoff refinement.
+      Where candidate multi-cluster solutions are supported,
+      silhouette diagnostics are used to compare candidate K values.
+      An initial K of 1 is valid where the supplied SNP-distance data
+      support one initial group. That group still proceeds through the
+      configured SNP-cutoff refinement before final Core SNP clusters
+      are reported.
     </p>
 
     <details class="figure-disclosure">
@@ -1427,7 +1561,10 @@ def write_html_report(
   >
     <h2 id="tables-heading">Output tables</h2>
     <p>
-      Download the machine-readable results generated for this run.
+      Download the machine-readable analytical outputs generated for
+      this run. The descriptions below distinguish initial K-means
+      assignments, retained Core SNP clusters, transmission-cluster
+      outputs and network-visualisation data.
     </p>
     {_render_downloads(
         table_files,
@@ -1444,32 +1581,85 @@ def write_html_report(
       Methods and interpretation guidance
     </h2>
 
-    <h3>Core SNP clustering</h3>
+    <h3>Core-clustering contexts</h3>
+
     <p>
-      Core SNP clustering groups isolates within the configured
-      ordered Core context. The context determines which isolates
-      are eligible to be clustered together, while the context-aware
-      cluster label keeps cluster identifiers interpretable across
-      analytical groups.
+      Core SNP clustering is performed within the configured ordered
+      Core-clustering context. Depending on the configuration, the
+      context may represent sequence type, the main epidemiological
+      variable, a secondary variable, or an ordered combination of
+      variables. A context is eligible for Core clustering when it
+      contains at least two isolates.
+    </p>
+
+    <h3>Initial data-driven K clustering</h3>
+
+    <p>
+      For each eligible context, SNP2Cluster-Py uses the supplied Core
+      SNP-distance matrix to perform an initial data-driven clustering
+      step. Candidate multi-cluster solutions are assessed using
+      silhouette-based diagnostics where the data support comparison
+      between two or more initial clusters.
+    </p>
+
+    <p>
+      An initial K of 1 is a valid data-driven result when the
+      SNP-distance data support one initial group. This includes
+      contexts containing multiple isolates with one distinct
+      SNP-distance profile. A numerical silhouette width is not
+      defined for a one-cluster solution, but the K=1 group remains
+      eligible for the subsequent SNP-cutoff refinement step.
+    </p>
+
+    <h3>SNP-cutoff refinement</h3>
+
+    <p>
+      After initial K assignment, each initial group is evaluated
+      using the unscaled pairwise Core SNP distances and the configured
+      SNP cutoff. Pairwise comparisons above the cutoff provide points
+      for splitting the initial group according to the implemented
+      chain-refinement logic. Only final Core SNP clusters containing
+      at least two isolates are retained and reported.
+    </p>
+
+    <h3>Context-aware cluster labels</h3>
+
+    <p>
+      Final Core SNP cluster labels retain the configured context so
+      that cluster identifiers remain interpretable across analytical
+      groups. Core SNP cluster membership therefore reflects both the
+      selected analytical context and the post-K-selection SNP-cutoff
+      refinement.
     </p>
 
     <h3>Transmission clustering</h3>
+
     <p>
-      Transmission analysis uses the configured epidemiological
-      grouping, collection dates, Core SNP clusters, SNP threshold,
-      and temporal threshold. Cluster membership should be
-      interpreted alongside the temporal scatterplots and available
-      epidemiological information.
+      In Transmission mode, SNP2Cluster-Py subsequently integrates
+      Core SNP cluster membership with the configured epidemiological
+      grouping, specimen-collection dates, SNP threshold and temporal
+      threshold. Transmission-cluster assignments should be
+      interpreted alongside the transmission scatterplots and the
+      available epidemiological information.
     </p>
 
-    <h3>Important limitation</h3>
+    <h3>Interactive networks</h3>
+
     <p>
-      This report summarizes analytical outputs produced by
+      Minimum-spanning-tree and transmission-network edges visualise
+      genetic relationships between isolates. Network connections are
+      analytical visualisation aids and must not be interpreted as
+      confirmed direct transmission events.
+    </p>
+
+    <h3>Important interpretation limitation</h3>
+
+    <p>
+      This report summarises analytical outputs produced by
       SNP2Cluster-Py. Results should be interpreted alongside the
-      configured parameters, laboratory information, epidemiological
-      metadata, and public-health context. Network connections are
-      visualization aids and should not be interpreted as confirmed
-      direct transmission events.
+      effective configuration, laboratory information,
+      epidemiological metadata, sampling strategy and relevant
+      public-health context.
     </p>
   </section>
 
