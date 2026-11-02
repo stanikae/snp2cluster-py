@@ -252,24 +252,231 @@ def _render_downloads(files: Sequence[Path], report_dir: Path) -> str:
     return '<ul class="download-list">' + "".join(items) + "</ul>"
 
 
+def _humanize_key(value: object) -> str:
+    """
+    Convert a machine-readable manifest key into a report label.
+    """
+    return (
+        str(value)
+        .strip()
+        .replace("_", " ")
+        .title()
+    )
+
+
+def _format_manifest_value(value: object) -> str:
+    """
+    Format and HTML-escape a manifest value.
+    """
+    if value is None:
+        return "Not specified"
+
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+
+    if isinstance(value, Sequence) and not isinstance(
+        value,
+        (str, bytes),
+    ):
+        if not value:
+            return "None"
+
+        return ", ".join(
+            html.escape(str(item))
+            for item in value
+        )
+
+    text = str(value).strip()
+
+    if not text:
+        return "Not specified"
+
+    return html.escape(text)
+
+
+def _render_key_value_table(
+    values: Mapping[str, object] | None,
+    *,
+    empty_message: str,
+) -> str:
+    """
+    Render a mapping as a two-column HTML table.
+    """
+    if not values:
+        return (
+            '<p class="empty-state">'
+            f"{html.escape(empty_message)}"
+            "</p>"
+        )
+
+    rows: list[str] = []
+
+    for key, value in values.items():
+        rows.append(
+            "<tr>"
+            f"<th>{html.escape(_humanize_key(key))}</th>"
+            f"<td>{_format_manifest_value(value)}</td>"
+            "</tr>"
+        )
+
+    return (
+        '<div class="table-wrap">'
+        "<table>"
+        + "".join(rows)
+        + "</table>"
+        "</div>"
+    )
+
 def _render_manifest(
     run_manifest: Mapping[str, object] | None,
     software_version: str | None,
 ) -> str:
-    rows: list[tuple[str, str]] = []
+    """
+    Render structured run provenance from the run manifest.
+    """
+    if not run_manifest:
+        return (
+            '<p class="empty-state">'
+            "No run-manifest metadata was supplied."
+            "</p>"
+        )
+
+    identity_keys = (
+        "tool",
+        "project_name",
+        "run_directory",
+        "timestamp_utc",
+        "python_version",
+        "platform",
+    )
+
+    identity: dict[str, object] = {}
+
+    manifest_version = run_manifest.get("version")
 
     if software_version:
-        rows.append(("SNP2Cluster-Py version", str(software_version)))
+        identity["software_version"] = software_version
+    elif manifest_version:
+        identity["software_version"] = manifest_version
 
-    if run_manifest:
-        for key, value in run_manifest.items():
-            if isinstance(value, (str, int, float, bool)) or value is None:
-                rows.append((str(key).replace("_", " ").title(), _normalise(value)))
+    for key in identity_keys:
+        if key in run_manifest:
+            identity[key] = run_manifest[key]
 
-    if not rows:
-        return '<p class="empty-state">No run-manifest metadata was supplied.</p>'
+    input_files = run_manifest.get("input_files")
+    configured_columns = run_manifest.get("columns")
+    analysis_parameters = run_manifest.get(
+        "analysis_parameters"
+    )
+    dependency_versions = run_manifest.get(
+        "dependency_versions"
+    )
+    validation_messages = run_manifest.get(
+        "validation_messages"
+    )
 
-    return _render_table(rows)
+    if (
+        isinstance(validation_messages, Sequence)
+        and not isinstance(
+            validation_messages,
+            (str, bytes),
+        )
+    ):
+        validation_items = list(validation_messages)
+    elif validation_messages:
+        validation_items = [validation_messages]
+    else:
+        validation_items = []
+
+    if validation_items:
+        validation_html = (
+            '<ul class="validation-list">'
+            + "".join(
+                f"<li>{html.escape(str(item))}</li>"
+                for item in validation_items
+            )
+            + "</ul>"
+        )
+    else:
+        validation_html = (
+            '<p class="validation-success">'
+            "Validation passed with no reported issues."
+            "</p>"
+        )
+
+    return f"""
+    <div class="provenance-block">
+      <h3>Run identity</h3>
+      {_render_key_value_table(
+          identity,
+          empty_message=(
+              "Run identity metadata is unavailable."
+          ),
+      )}
+
+      <details class="provenance-details" open>
+        <summary>Input files</summary>
+        {_render_key_value_table(
+            input_files
+            if isinstance(input_files, Mapping)
+            else None,
+            empty_message=(
+                "Input-file metadata is unavailable."
+            ),
+        )}
+      </details>
+
+      <details class="provenance-details">
+        <summary>Analysis parameters</summary>
+        {_render_key_value_table(
+            analysis_parameters
+            if isinstance(
+                analysis_parameters,
+                Mapping,
+            )
+            else None,
+            empty_message=(
+                "Analysis-parameter metadata is unavailable."
+            ),
+        )}
+      </details>
+
+      <details class="provenance-details">
+        <summary>Configured columns</summary>
+        {_render_key_value_table(
+            configured_columns
+            if isinstance(
+                configured_columns,
+                Mapping,
+            )
+            else None,
+            empty_message=(
+                "Configured-column metadata is unavailable."
+            ),
+        )}
+      </details>
+
+      <details class="provenance-details">
+        <summary>Validation</summary>
+        {validation_html}
+      </details>
+
+      <details class="provenance-details">
+        <summary>Software dependencies</summary>
+        {_render_key_value_table(
+            dependency_versions
+            if isinstance(
+                dependency_versions,
+                Mapping,
+            )
+            else None,
+            empty_message=(
+                "Dependency-version metadata is unavailable."
+            ),
+        )}
+      </details>
+    </div>
+    """
 
 
 def write_html_report(
@@ -461,6 +668,76 @@ def write_html_report(
       .page {{ max-width: none; padding: 0; }}
       .hero, .section, .metric-card {{ box-shadow: none; break-inside: avoid; }}
       .button {{ color: var(--brand-dark); background: transparent; border: 1px solid var(--brand); }}
+    }}
+    .provenance-block h3 {{
+      margin: 22px 0 10px;
+    }}
+
+    .provenance-block h3:first-child {{
+      margin-top: 0;
+    }}
+
+    .provenance-details {{
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfcfd;
+      overflow: hidden;
+    }}
+
+    .provenance-details summary {{
+      padding: 13px 16px;
+      color: var(--brand-dark);
+      background: #f3f7f8;
+      cursor: pointer;
+      font-weight: 700;
+    }}
+
+    .provenance-details summary:focus-visible {{
+      outline: 3px solid rgba(20, 94, 128, 0.25);
+      outline-offset: -3px;
+    }}
+
+    .provenance-details[open] summary {{
+      border-bottom: 1px solid var(--line);
+    }}
+
+    .provenance-details .table-wrap,
+    .provenance-details .empty-state,
+    .provenance-details .validation-success,
+    .provenance-details .validation-list {{
+      margin: 14px 16px;
+    }}
+
+    .provenance-details td {{
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }}
+
+    .validation-success {{
+      padding: 12px 14px;
+      color: #155724;
+      background: #edf8f0;
+      border-left: 4px solid #2f855a;
+      border-radius: 7px;
+    }}
+
+    .validation-list {{
+      padding-left: 22px;
+    }}
+
+    .validation-list li + li {{
+      margin-top: 7px;
+    }}
+
+    @media print {{
+      .provenance-details {{
+        break-inside: avoid;
+      }}
+
+      .provenance-details summary {{
+        background: #ffffff;
+      }}
     }}
   </style>
 </head>
