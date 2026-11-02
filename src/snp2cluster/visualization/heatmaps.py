@@ -356,8 +356,8 @@ def _legend_height(
         return 0.0
 
     return (
-        0.055
-        + 0.027 * n_rows
+        0.050
+        + 0.023 * n_rows
     )
 
 
@@ -375,13 +375,12 @@ def _legend_panel_width(
     )
 
     return (
-        0.20
-        + 0.13 * max(
+        0.12
+        + 0.085 * max(
             0,
             n_columns - 1,
         )
     )
-
 
 def _plan_legend_layout(
     category_counts: Sequence[int],
@@ -390,7 +389,7 @@ def _plan_legend_layout(
     start_y: float = 0.94,
     bottom_limit: float = 0.06,
     vertical_gap: float = 0.025,
-    panel_gap: float = 0.04,
+    panel_gap=0.015,
     max_rows: int = 14,
 ) -> list[dict[str, float | int]]:
     """
@@ -591,8 +590,8 @@ def plot_annotated_snp_heatmap(
         start_x=1.02,
         start_y=0.94,
         bottom_limit=0.06,
-        vertical_gap=0.025,
-        panel_gap=0.04,
+        vertical_gap=0.020,
+        panel_gap=0.015,
         max_rows=14,
     )
 
