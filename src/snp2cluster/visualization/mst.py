@@ -30,12 +30,13 @@ _VIS_SHAPES = (
 )
 
 _VIS_BORDER_PATTERNS: tuple[
-    bool | tuple[int, int],
+    bool | tuple[int, ...],
     ...,
 ] = (
     False,
-    (6, 4),
+    (7, 4),
     (2, 3),
+    (8, 3, 2, 3),
 )
 
 _MAX_VIS_SYMBOLS = (

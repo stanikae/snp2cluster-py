@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-11-03
+### Fixed
+- Extended high-cardinality minimum-spanning-tree sequence-type encoding from 33 to 44 unique visual symbols.
+- Added a fourth dash-dot border-pattern family while preserving node fill colour for Core SNP cluster annotation.
+- Prevented valid MST generation from failing for datasets containing between 34 and 44 sequence-type categories in one displayed analysis group.
+- Added regression coverage for 36-category MSTs and the new 44-category upper bound.
+### Validation
+- Validated using a Ghana pneumococcal dataset containing 36 sequence-type categories in the Abura community MST.
+- Confirmed that all 36 sequence types receive unique shape-and-border combinations.
+
 ## [1.1.0] - 2026-11-02
 ### Added
 - Structured run provenance in the standalone HTML report, including input files, effective analytical parameters, configured columns, validation results, platform information, and dependency versions.
