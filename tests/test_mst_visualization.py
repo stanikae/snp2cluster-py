@@ -80,18 +80,38 @@ def test_shape_map_is_deterministic() -> None:
     assert first == second
 
 
-def test_shape_map_rejects_more_than_33_categories() -> None:
+def test_shape_map_assigns_36_unique_symbols() -> None:
     series = pd.Series(
         [
             str(index)
-            for index in range(34)
+            for index in range(36)
+        ]
+    )
+
+    symbols = _shape_map(series)
+
+    assert len(symbols) == 36
+
+    unique_symbols = {
+        _symbol_key(symbol)
+        for symbol in symbols.values()
+    }
+
+    assert len(unique_symbols) == 36
+
+
+def test_shape_map_rejects_more_than_44_categories() -> None:
+    series = pd.Series(
+        [
+            str(index)
+            for index in range(45)
         ]
     )
 
     with pytest.raises(
         ValueError,
         match=(
-            "maximum supported number is 33"
+            "maximum supported number is 44"
         ),
     ):
         _shape_map(series)
@@ -115,15 +135,28 @@ def test_legend_svg_supports_all_mst_shapes() -> None:
     rendered = {
         shape: _legend_shape_svg(
             shape,
-            [6, 4],
+            [7, 4],
         )
         for shape in shapes
     }
 
+    assert len(rendered) == 11
     assert len(set(rendered.values())) == len(shapes)
 
     for svg in rendered.values():
-        assert 'stroke-dasharray="6 4"' in svg
+        assert 'stroke-dasharray="7 4"' in svg
+
+    dash_dot_svg = _legend_shape_svg(
+        "dot",
+        [8, 3, 2, 3],
+    )
+
+    assert (
+        'stroke-dasharray="8 3 2 3"'
+        in dash_dot_svg
+    )
+
+    assert "<circle" in dash_dot_svg
 
 
 def test_mst_html_contains_shape_border_patterns(
