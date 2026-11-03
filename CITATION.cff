@@ -8,7 +8,7 @@ authors:
     email: "skwenda@bioinfox.co.za"
   - family-names: "Christoffels"
     given-names: "Alan"
-version: 1.1.0
+version: 1.1.1
 doi: "10.5281/zenodo.23045861"
-date-released: 2026-11-02
+date-released: 2026-11-03
 url: "https://github.com/stanikae/snp2cluster-py"
