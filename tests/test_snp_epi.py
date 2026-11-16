@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 
 from snp2cluster.r_compat import (
@@ -373,4 +375,160 @@ def test_st307_transmission_membership_is_input_order_invariant():
             .astype(int)
             .eq(4)
             .all()
+        )
+
+
+def test_parse_dates_mdy_supports_mixed_year_lengths_without_warning():
+    """MDY parsing must handle project dates without pandas inference."""
+    values = pd.Series(
+        [
+            "10/10/19",
+            "11/27/19",
+            "12/4/19",
+            "12/5/19",
+            "12/10/19",
+            "1/21/20",
+            "12/17/2019",
+        ]
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        parsed = parse_dates(
+            values,
+            date_format="mdy",
+        )
+
+    assert caught == []
+
+    assert [
+        str(value.date())
+        for value in parsed
+    ] == [
+        "2019-10-10",
+        "2019-11-27",
+        "2019-12-04",
+        "2019-12-05",
+        "2019-12-10",
+        "2020-01-21",
+        "2019-12-17",
+    ]
+
+
+def test_parse_dates_dmy_supports_two_and_four_digit_years():
+    """DMY parsing must support both two- and four-digit years."""
+    values = pd.Series(
+        [
+            "17/12/19",
+            "5/1/20",
+            "17/12/2019",
+        ]
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        parsed = parse_dates(
+            values,
+            date_format="dmy",
+        )
+
+    assert caught == []
+
+    assert [
+        str(value.date())
+        for value in parsed
+    ] == [
+        "2019-12-17",
+        "2020-01-05",
+        "2019-12-17",
+    ]
+
+
+def test_parse_dates_ymd_supports_common_separators():
+    """YMD parsing must support dash, slash and dot separators."""
+    values = pd.Series(
+        [
+            "2019-12-17",
+            "2019/12/18",
+            "2019.12.19",
+            "19/12/20",
+        ]
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        parsed = parse_dates(
+            values,
+            date_format="ymd",
+        )
+
+    assert caught == []
+
+    assert [
+        str(value.date())
+        for value in parsed
+    ] == [
+        "2019-12-17",
+        "2019-12-18",
+        "2019-12-19",
+        "2019-12-20",
+    ]
+
+
+def test_parse_dates_preserves_missing_and_coerces_invalid_values():
+    """Missing and invalid values must remain missing without warnings."""
+    values = pd.Series(
+        [
+            None,
+            "",
+            "not-a-date",
+            "2/30/20",
+            "12/5/19",
+        ]
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        parsed = parse_dates(
+            values,
+            date_format="mdy",
+        )
+
+    assert caught == []
+
+    assert parsed.isna().tolist() == [
+        True,
+        True,
+        True,
+        True,
+        False,
+    ]
+
+    assert str(parsed.iloc[4].date()) == "2019-12-05"
+
+
+def test_parse_dates_rejects_unsupported_format():
+    """Unsupported date-order tokens must raise a clear error."""
+    values = pd.Series(
+        [
+            "2019-12-17",
+        ]
+    )
+
+    try:
+        parse_dates(
+            values,
+            date_format="unknown",
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "Unsupported date format: unknown"
+        )
+    else:
+        raise AssertionError(
+            "Unsupported date format did not raise ValueError."
         )
