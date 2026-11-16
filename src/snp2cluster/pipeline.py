@@ -16,6 +16,8 @@ from .mst import build_minimum_spanning_tree, mst_edges_table
 from .report import write_html_report
 from .transmission import build_transmission_clusters
 from .validation import validate_all, ValidationError
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_samples
 from sklearn.preprocessing import StandardScaler
 # from .r_compat import get_core_snp_clusters_r_compatible
 from .r_compat import determine_optimal_k_r_style, matrix_to_mdf, get_core_snp_clusters_r_compatible
@@ -110,6 +112,171 @@ def build_core_context_column(
             axis=1,
         )
     )
+
+
+def _write_kmeans_matrix_comparison(
+    *,
+    raw_matrix: pd.DataFrame,
+    scaled_matrix: pd.DataFrame,
+    selected_k: int,
+    random_seed: int,
+    context_value: str,
+    output_dir: Path,
+) -> Path:
+    """Compare scaled- and raw-matrix K-means solutions.
+
+    This diagnostic does not change analytical results. It compares
+    the matrix used during K selection with the raw matrix passed to
+    final R-compatible Core clustering.
+    """
+    raw = raw_matrix.copy()
+    scaled = scaled_matrix.copy()
+
+    raw.index = raw.index.astype(str)
+    raw.columns = raw.columns.astype(str)
+    scaled.index = scaled.index.astype(str)
+    scaled.columns = scaled.columns.astype(str)
+
+    expected_ids = raw.index.tolist()
+
+    if raw.columns.tolist() != expected_ids:
+        raise ValueError(
+            "Raw matrix rows and columns are misaligned for "
+            f"Core context {context_value!r}."
+        )
+
+    if scaled.index.tolist() != expected_ids:
+        raise ValueError(
+            "Scaled matrix row order differs from the raw matrix for "
+            f"Core context {context_value!r}."
+        )
+
+    if scaled.columns.tolist() != expected_ids:
+        raise ValueError(
+            "Scaled matrix column order differs from the raw matrix for "
+            f"Core context {context_value!r}."
+        )
+
+    n_isolates = len(expected_ids)
+
+    if selected_k < 2 or selected_k >= n_isolates:
+        raise ValueError(
+            "Cannot calculate silhouette diagnostics for "
+            f"context {context_value!r}: selected_k={selected_k}, "
+            f"n_isolates={n_isolates}."
+        )
+
+    result_parts: list[pd.DataFrame] = []
+
+    for matrix_name, matrix in (
+        ("scaled", scaled),
+        ("raw", raw),
+    ):
+        values = matrix.astype(float).to_numpy()
+
+        model = KMeans(
+            n_clusters=selected_k,
+            n_init=25,
+            random_state=random_seed,
+        )
+
+        labels_zero_based = model.fit_predict(values)
+        labels = labels_zero_based + 1
+
+        sample_widths = silhouette_samples(
+            values,
+            labels_zero_based,
+        )
+
+        result = pd.DataFrame(
+            {
+                "core_context": context_value,
+                "matrix_used": matrix_name,
+                "sample_id": expected_ids,
+                "selected_k": selected_k,
+                "kmeans_cluster": labels.astype(int),
+                "sample_silhouette_width": sample_widths,
+            }
+        )
+
+        result["cluster_avg_silhouette_width"] = (
+            result.groupby("kmeans_cluster")[
+                "sample_silhouette_width"
+            ].transform("mean")
+        )
+
+        result["cluster_size"] = (
+            result.groupby("kmeans_cluster")[
+                "sample_id"
+            ].transform("nunique")
+        )
+
+        result["cluster_members"] = (
+            result.groupby("kmeans_cluster")[
+                "sample_id"
+            ].transform(
+                lambda values: "|".join(
+                    sorted(values.astype(str))
+                )
+            )
+        )
+
+        result_parts.append(result)
+
+    comparison = pd.concat(
+        result_parts,
+        ignore_index=True,
+    )
+
+    safe_context = (
+        str(context_value)
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(" ", "_")
+    )
+
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    output_path = (
+        output_dir
+        / f"debug_kmeans_scaled_vs_raw_{safe_context}.csv"
+    )
+
+    comparison.to_csv(
+        output_path,
+        index=False,
+    )
+
+    summary = (
+        comparison[
+            [
+                "matrix_used",
+                "kmeans_cluster",
+                "cluster_size",
+                "cluster_avg_silhouette_width",
+                "cluster_members",
+            ]
+        ]
+        .drop_duplicates()
+        .sort_values(
+            [
+                "matrix_used",
+                "kmeans_cluster",
+            ]
+        )
+    )
+
+    print(
+        "\nK-means matrix comparison for "
+        f"Core context {context_value}:"
+    )
+    print(summary.to_string(index=False))
+    print(f"Diagnostic written to: {output_path}\n")
+
+    return output_path
 
 
 def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
@@ -567,6 +734,21 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                     )
                 )
 
+                context_st = (
+                    str(context_value)
+                    .split("__")[-1]
+                    .strip()
+                )
+
+                if context_st == "307":
+                    _write_kmeans_matrix_comparison(
+                        raw_matrix=facility_snp_raw,
+                        scaled_matrix=facility_snp_scaled,
+                        selected_k=sigN,
+                        random_seed=random_seed,
+                        context_value=str(context_value),
+                        output_dir=dirs["audit"],
+                    )
 
                 plot_k_selection(
                     diagnostics_df=k_selection_diagnostics,
@@ -586,6 +768,12 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                 )
 
                 if core_result is None:
+                    print(
+                        f"Core context {context_value}: "
+                        f"selected K={sigN}, but no valid Core SNP "
+                        "cluster survived silhouette filtering and "
+                        "SNP-cutoff refinement."
+                    )
                     continue
 
                 facility_clusters = (
