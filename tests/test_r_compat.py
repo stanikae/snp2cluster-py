@@ -273,3 +273,92 @@ def test_single_isolate_context_returns_no_cluster():
     )
 
     assert result is None
+
+
+def test_snp_threshold_graph_retains_all_connected_st307_isolates():
+    """
+    Core SNP clusters are connected components of the SNP-threshold graph.
+
+    These six Hospital C ST307 isolates have pairwise distances between
+    1 and 7 SNPs. Because every pair is within the configured 11-SNP
+    cutoff, all six isolates must form one Core SNP cluster.
+
+    The k and max_k arguments remain present while the existing API is
+    being refactored, but they must not determine final Core membership.
+    """
+    ids = [
+        "BG258",
+        "BG254",
+        "BG32",
+        "BG317",
+        "BG315",
+        "BG259",
+    ]
+
+    mat = pd.DataFrame(
+        [
+            [0, 5, 4, 5, 2, 2],
+            [5, 0, 1, 6, 3, 3],
+            [4, 1, 0, 5, 2, 2],
+            [5, 6, 5, 0, 7, 3],
+            [2, 3, 2, 7, 0, 4],
+            [2, 3, 2, 3, 4, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    result = get_core_snp_clusters_r_compatible(
+        m=mat,
+        k=2,
+        max_k=4,
+        snpco=11,
+        random_seed=42,
+    )
+
+    assert result is not None
+
+    observed_ids = set(
+        result.snp_clusters["name"].astype(str)
+    )
+
+    assert observed_ids == set(ids)
+
+    assert (
+        result.snp_clusters["name"].nunique()
+        == 6
+    )
+
+    assert (
+        result.snp_clusters["cluster"].nunique()
+        == 1
+    )
+
+    cluster_sizes = (
+        result.snp_clusters
+        .groupby("cluster")["name"]
+        .nunique()
+        .tolist()
+    )
+
+    assert cluster_sizes == [6]
+
+    upper_triangle = (
+        mat.where(
+            pd.DataFrame(
+                [
+                    [
+                        column_index > row_index
+                        for column_index in range(len(mat))
+                    ]
+                    for row_index in range(len(mat))
+                ],
+                index=mat.index,
+                columns=mat.columns,
+            )
+        )
+        .stack()
+    )
+
+    assert upper_triangle.max() <= 11
