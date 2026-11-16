@@ -1,6 +1,7 @@
 import pandas as pd
 
 from snp2cluster.r_compat import (
+    _snp_threshold_components,
     cumsum_group_r_port,
     connect_samples_r_port,
     determine_optimal_k_r_style,
@@ -362,3 +363,168 @@ def test_snp_threshold_graph_retains_all_connected_st307_isolates():
     )
 
     assert upper_triangle.max() <= 11
+
+
+def test_snp_threshold_components_retains_complete_component():
+    """All mutually qualifying isolates form one graph component."""
+    ids = ["A", "B", "C", "D"]
+
+    mat = pd.DataFrame(
+        [
+            [0, 2, 4, 6],
+            [2, 0, 3, 5],
+            [4, 3, 0, 2],
+            [6, 5, 2, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    components = _snp_threshold_components(
+        mat=mat,
+        snp_cutoff=6,
+    )
+
+    assert components == [
+        ["A", "B", "C", "D"],
+    ]
+
+
+def test_snp_threshold_components_supports_pairwise_chains():
+    """
+    Single-linkage connectivity permits indirect SNP relationships.
+
+    A and C are 20 SNPs apart, but both connect through B using
+    qualifying edges at an 11-SNP cutoff.
+    """
+    ids = ["A", "B", "C"]
+
+    mat = pd.DataFrame(
+        [
+            [0, 5, 20],
+            [5, 0, 7],
+            [20, 7, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    components = _snp_threshold_components(
+        mat=mat,
+        snp_cutoff=11,
+    )
+
+    assert components == [
+        ["A", "B", "C"],
+    ]
+
+
+def test_snp_threshold_components_separates_disconnected_groups():
+    """Separate threshold-connected groups remain separate clusters."""
+    ids = ["A", "B", "C", "D", "E"]
+
+    mat = pd.DataFrame(
+        [
+            [0, 3, 30, 31, 40],
+            [3, 0, 29, 30, 39],
+            [30, 29, 0, 4, 35],
+            [31, 30, 4, 0, 36],
+            [40, 39, 35, 36, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    components = _snp_threshold_components(
+        mat=mat,
+        snp_cutoff=11,
+    )
+
+    assert components == [
+        ["A", "B"],
+        ["C", "D"],
+    ]
+
+
+def test_snp_threshold_components_excludes_singletons_by_default():
+    """Isolates without a qualifying edge are not Core clusters."""
+    ids = ["A", "B", "C"]
+
+    mat = pd.DataFrame(
+        [
+            [0, 5, 30],
+            [5, 0, 31],
+            [30, 31, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    components = _snp_threshold_components(
+        mat=mat,
+        snp_cutoff=11,
+    )
+
+    assert components == [
+        ["A", "B"],
+    ]
+
+
+def test_snp_threshold_components_is_input_order_invariant():
+    """Membership must not depend on metadata or matrix ordering."""
+    ids = ["A", "B", "C", "D"]
+
+    mat = pd.DataFrame(
+        [
+            [0, 5, 25, 26],
+            [5, 0, 24, 25],
+            [25, 24, 0, 4],
+            [26, 25, 4, 0],
+        ],
+        index=ids,
+        columns=ids,
+        dtype=float,
+    )
+
+    reordered_ids = [
+        "D",
+        "B",
+        "A",
+        "C",
+    ]
+
+    reordered = mat.loc[
+        reordered_ids,
+        reordered_ids,
+    ]
+
+    original_components = _snp_threshold_components(
+        mat=mat,
+        snp_cutoff=11,
+    )
+
+    reordered_components = _snp_threshold_components(
+        mat=reordered,
+        snp_cutoff=11,
+    )
+
+    original_membership = {
+        frozenset(component)
+        for component in original_components
+    }
+
+    reordered_membership = {
+        frozenset(component)
+        for component in reordered_components
+    }
+
+    assert original_membership == reordered_membership
+
+    assert original_membership == {
+        frozenset({"A", "B"}),
+        frozenset({"C", "D"}),
+    }

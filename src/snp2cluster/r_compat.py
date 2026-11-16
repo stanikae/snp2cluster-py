@@ -428,6 +428,158 @@ def _clusters_from_pairs(df_pairs: pd.DataFrame, max_v: int = 0) -> pd.DataFrame
     return long_df.reset_index(drop=True)
 
 
+def _snp_threshold_components(
+    mat: pd.DataFrame,
+    snp_cutoff: float,
+    min_component_size: int = 2,
+) -> list[list[str]]:
+    """Return connected components from an SNP-threshold graph.
+
+    Each isolate is represented as a graph node. An undirected edge is
+    added between two isolates when their pairwise SNP distance is less
+    than or equal to ``snp_cutoff``.
+
+    Components are defined using single-linkage connectivity. Two
+    isolates therefore belong to the same component when they are
+    connected directly or through a chain of qualifying SNP links.
+
+    Parameters
+    ----------
+    mat
+        Square pairwise SNP-distance matrix with matching row and
+        column sample identifiers.
+
+    snp_cutoff
+        Maximum pairwise SNP distance allowed for a graph edge.
+
+    min_component_size
+        Minimum number of distinct isolates required for a returned
+        component. The default excludes singleton components.
+
+    Returns
+    -------
+    list[list[str]]
+        Deterministically ordered connected components. Isolates retain
+        their order from the input matrix, and components are ordered by
+        the first isolate appearing in each component.
+    """
+    matrix = mat.copy()
+
+    matrix.index = matrix.index.astype(str)
+    matrix.columns = matrix.columns.astype(str)
+
+    sample_ids = matrix.index.tolist()
+
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ValueError(
+            "SNP matrix row identifiers must be unique."
+        )
+
+    if matrix.columns.tolist() != sample_ids:
+        raise ValueError(
+            "SNP matrix rows and columns must contain the same "
+            "sample identifiers in the same order."
+        )
+
+    if min_component_size < 1:
+        raise ValueError(
+            "min_component_size must be at least 1."
+        )
+
+    if snp_cutoff < 0:
+        raise ValueError(
+            "snp_cutoff must be non-negative."
+        )
+
+    try:
+        matrix = matrix.astype(float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "SNP matrix must contain numeric distances."
+        ) from exc
+
+    values = matrix.to_numpy(dtype=float)
+
+    if not np.isfinite(values).all():
+        raise ValueError(
+            "SNP matrix contains missing or non-finite distances."
+        )
+
+    if (values < 0).any():
+        raise ValueError(
+            "SNP matrix distances must be non-negative."
+        )
+
+    if not np.allclose(
+        values,
+        values.T,
+        rtol=0.0,
+        atol=1e-8,
+    ):
+        raise ValueError(
+            "SNP matrix must be symmetric."
+        )
+
+    parent = list(range(len(sample_ids)))
+    rank = [0] * len(sample_ids)
+
+    def find(node: int) -> int:
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+
+        return node
+
+    def union(left: int, right: int) -> None:
+        left_root = find(left)
+        right_root = find(right)
+
+        if left_root == right_root:
+            return
+
+        if rank[left_root] < rank[right_root]:
+            parent[left_root] = right_root
+        elif rank[left_root] > rank[right_root]:
+            parent[right_root] = left_root
+        else:
+            parent[right_root] = left_root
+            rank[left_root] += 1
+
+    for row_index in range(len(sample_ids)):
+        for column_index in range(
+            row_index + 1,
+            len(sample_ids),
+        ):
+            distance = values[
+                row_index,
+                column_index,
+            ]
+
+            if distance <= snp_cutoff:
+                union(
+                    row_index,
+                    column_index,
+                )
+
+    components_by_root: dict[int, list[str]] = {}
+
+    for sample_index, sample_id in enumerate(sample_ids):
+        root = find(sample_index)
+
+        components_by_root.setdefault(
+            root,
+            [],
+        ).append(sample_id)
+
+    components = [
+        component
+        for component in components_by_root.values()
+        if len(component) >= min_component_size
+    ]
+
+    return components
+
+
 def get_core_snp_clusters_r_compatible(
     m: pd.DataFrame,
     k: int,
