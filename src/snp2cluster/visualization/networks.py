@@ -11,6 +11,7 @@ import networkx as nx
 import pandas as pd
 import seaborn as sns
 
+from ..date_utils import parse_dates
 from ..mst import build_minimum_spanning_tree, mst_edges_table
 
 
@@ -169,31 +170,17 @@ def _parse_collection_dates(
     *,
     date_format: str | None,
 ) -> pd.Series:
-    """Parse collection dates using the configured date ordering."""
-    normalised_format = str(date_format or "ymd").strip().casefold()
-    format_map = {
-        "ymd": "%Y-%m-%d",
-        "ydm": "%Y-%d-%m",
-        "dmy": "%d-%m-%Y",
-        "mdy": "%m-%d-%Y",
-    }
-
-    parsed = pd.to_datetime(
-        series,
-        errors="coerce",
-        format=format_map.get(normalised_format),
+    """Parse collection dates using the shared configured parser."""
+    normalised_format = (
+        str(date_format or "ymd")
+        .strip()
+        .casefold()
     )
 
-    unresolved = parsed.isna() & series.notna()
-
-    if unresolved.any():
-        parsed.loc[unresolved] = pd.to_datetime(
-            series.loc[unresolved],
-            errors="coerce",
-            dayfirst=normalised_format in {"dmy", "ydm"},
-        )
-
-    return parsed
+    return parse_dates(
+        series,
+        date_format=normalised_format,
+    )
 
 
 def prepare_transmission_network_data(
