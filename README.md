@@ -6,7 +6,7 @@
 
 SNP2Cluster-Py is an open-source Python application for reproducible genomic clustering and transmission-cluster analysis from pairwise core SNP distances, epidemiological metadata, sequence types, collection dates, and configurable analytical contexts.
 
-The tool provides a tested Python implementation of the SNP2Cluster analytical workflow, including R-compatible Core SNP clustering, SNP-Epi transmission clustering, context-aware analysis, publication-supporting visualizations, machine-readable tables, audit records, and an open scientific HTML report.
+The tool provides a tested Python implementation of the SNP2Cluster analytical workflow, including SNP-threshold graph-based Core clustering, SNP-Epi transmission clustering, context-aware analysis, exploratory K-means diagnostics, publication-supporting visualizations, machine-readable tables, audit records, and an open scientific HTML report.
 
 
 
@@ -40,15 +40,16 @@ The tool provides a tested Python implementation of the SNP2Cluster analytical w
 
 Version 1 provides the complete open scientific analysis layer:
 
-- Core SNP clustering
+- SNP-threshold graph-based Core SNP clustering
 - SNP-Epi transmission-cluster detection
-- R-compatible analytical behavior
+- R-compatible SNP-Epi transmission analysis
 - Core-only and Transmission analysis modes
 - Facility, Area, and Community transmission levels
 - Ordered context-aware Core SNP clustering
+- Single-linkage pairwise SNP-chain connectivity
 - Configurable sample, metadata, date, and MLST mappings
 - Canonical context-aware Core cluster identifiers
-- K-selection diagnostics
+- Exploratory K-selection and silhouette diagnostics
 - Transmission scatterplots
 - Annotated Core SNP heatmaps
 - Interactive Core SNP minimum spanning trees
@@ -82,7 +83,10 @@ Canonical metadata enrichment
 Ordered Core clustering context
         |
         v
-Context-specific Core SNP clustering
+SNP-threshold graph construction
+        |
+        v
+Connected-component Core clustering
         |
         +----------------------+
         |                      |
@@ -187,6 +191,10 @@ outputs:
 ## Core clustering contexts
 
 `core_cluster_context` is an ordered list that controls which isolates may participate in Core SNP clustering together.
+
+Within each context, each isolate is represented as a graph node. An edge is created between two isolates when their pairwise SNP distance is at or below `analysis.snp_cutoff`. Connected components containing at least two isolates are retained as authoritative Core SNP clusters.
+
+This is a single-linkage, pairwise-chain definition. Two isolates may therefore belong to the same Core cluster through a chain of qualifying SNP-distance links even when their direct pairwise distance exceeds the cutoff. K-means assignments and silhouette values are exploratory diagnostics only and do not split, exclude, merge, or otherwise determine final Core-cluster membership.
 
 Supported tokens:
 
@@ -362,8 +370,8 @@ Outputs vary by analysis mode and configuration.
 
 ## Visual outputs
 
-### K-selection diagnostics
-Summarize candidate values of k and the selected Core clustering solution.
+### Exploratory K-selection diagnostics
+Summarize candidate values of k, exploratory K-means assignments, and silhouette structure within each configured context. These diagnostics describe the geometry of SNP-distance profiles but do not determine authoritative Core SNP-cluster membership.
 ![K-selection diagnostics](docs/images/01_k_selection_ALL_SAMPLES.png)
 
 ### Transmission scatterplots

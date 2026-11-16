@@ -567,7 +567,6 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                     )
                 )
 
-
                 plot_k_selection(
                     diagnostics_df=k_selection_diagnostics,
                     output_dir=dirs["figures"],
@@ -586,6 +585,13 @@ def run_pipeline(config: SNP2ClusterConfig) -> dict[str, Path]:
                 )
 
                 if core_result is None:
+                    print(
+                        f"Core context {context_value}: "
+                        "no SNP-threshold connected component "
+                        "containing at least two isolates was "
+                        f"identified at the configured "
+                        f"{snp_cutoff}-SNP cutoff."
+                    )
                     continue
 
                 facility_clusters = (

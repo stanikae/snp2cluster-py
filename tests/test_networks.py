@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import networkx as nx
 import pandas as pd
 import pytest
@@ -146,3 +148,46 @@ def test_core_mode_returns_no_network_outputs(tmp_path) -> None:
     assert outputs["paths"] == {}
     assert outputs["nodes"].empty
     assert outputs["edges"].empty
+
+
+def test_network_dates_use_configured_mdy_parser_without_warning() -> None:
+    """Network preparation must use the shared explicit date parser."""
+    data = _transmission_data()
+
+    data["TakenDate"] = [
+        "11/27/19",
+        "12/4/19",
+        "12/5/2019",
+        "1/21/20",
+    ]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        prepared = prepare_transmission_network_data(
+            data,
+            _matrix(),
+            sample_id_column="SampleID",
+            main_var="FacilityName",
+            collection_date_column="TakenDate",
+            shape_column="WardType",
+            date_format="mdy",
+        )
+
+    assert caught == []
+
+    expected_dates = {
+        "A": "2019-11-27",
+        "B": "2019-12-04",
+        "C": "2019-12-05",
+        "D": "2020-01-21",
+    }
+
+    observed_dates = {
+        sample_id: str(value.date())
+        for sample_id, value in prepared[
+            "_collection_date"
+        ].items()
+    }
+
+    assert observed_dates == expected_dates
