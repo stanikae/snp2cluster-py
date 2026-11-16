@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-11-16
+### Fixed
+- Made the configured SNP cutoff authoritative for Core SNP-cluster membership by constructing threshold-graph connected components within each analytical context.
+- Prevented exploratory K-means partitions and silhouette thresholds from splitting, excluding, merging, or otherwise determining final Core SNP clusters.
+- Fixed valid Core clusters disappearing under `core_cluster_context: [ST]` and `[MainVar, ST]`.
+- Restored consistent Hospital C cluster membership between single-facility, multi-facility, and Global analyses.
+- Correctly retained all six Hospital C ST307 isolates in one Core SNP cluster at the 11-SNP cutoff.
+- Correctly retained BG315, BG259, BG258, and BG254 in one four-isolate transmission cluster at the 14-day cutoff while keeping BG32 and BG317 transmission-unclustered.
+- Replaced pandas date inference with explicit configured parsing for `ymd`, `ydm`, `dmy`, and `mdy`.
+- Added support for slash, dash, and dot date separators and for two- and four-digit years.
+- Routed transmission-network collection dates through the shared configured date parser, eliminating date-inference warnings.
+
+### Changed
+- K-means assignments and silhouette widths are now exploratory diagnostics only and no longer control authoritative Core SNP-cluster membership.
+- Core SNP clusters are now defined as connected components of a graph in which isolate pairs are linked when their SNP distance is at or below the configured cutoff.
+- Pairwise SNP chains are supported through single-linkage connectivity, including clusters whose indirectly connected members may exceed the cutoff.
+
+### Validation
+- Validated Hospital C under `[ST]`, `[MainVar, ST]`, and `[Global]` Core contexts.
+- Validated Hospital C results in both single-facility and 172-isolate multi-facility analyses.
+- Confirmed matching Hospital C transmission membership for ST152, ST17, ST307, and ST45 between single- and multi-facility inputs.
+- Added regression coverage for threshold-connected components, pairwise SNP chains, disconnected components, singleton exclusion, input-order invariance, the ST307 temporal chain, explicit date parsing, and network-date parsing.
+- Final automated test suite: 60 passing tests with no date-inference warnings.
+
 ## [1.1.1] - 2026-11-03
 ### Fixed
 - Extended high-cardinality minimum-spanning-tree sequence-type encoding from 33 to 44 unique visual symbols.
